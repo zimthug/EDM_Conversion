@@ -1,0 +1,7 @@
+/03_Cadastramento
+/04_Prepayment
+/05_Galatee
+/06_Access
+# ignore objects and archives, anywhere in the tree.
+*.[oa]
+*~*
