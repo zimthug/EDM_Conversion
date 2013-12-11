@@ -3,12 +3,13 @@ declare
     select distinct cod_pro,
                     trim(regexp_replace(prov, '[[:punct:]]', null)) prov
       from edmgalatee.dg_geostruct
-     where cod_pro in (10, 11);
+     where cod_pro in (10, 11, 9);
 
   cursor lcur_munic(pll_cod_pro in number) is
     select distinct cod_dist, distrito
       from edmgalatee.dg_geostruct
      where cod_pro = pll_cod_pro
+       and cod_unicom is not null
      order by 2;
 
   cursor lcur_localidade(pll_cod_dist in number) is
@@ -21,13 +22,15 @@ declare
                     end localidade
       from edmgalatee.dg_geostruct e
      where cod_dist = pll_cod_dist
+       and cod_unicom is not null
      order by 1;
 
   cursor lcur_callejero(pll_cod_pa in number, pll_cod_loc in number) is
     select distinct e.cod_bairro, e.bairro, e.cod_unicom
       from edmgalatee.dg_geostruct e
      where cod_pa = pll_cod_pa
-       and cod_loc = pll_cod_loc;
+       and cod_loc = pll_cod_loc
+       and cod_unicom is not null;
 
   ll_cod_depto  number;
   ll_cod_munic  number;
@@ -109,7 +112,7 @@ begin
           /*if lcur_callejero_rec.cod_unicom is null then
             ll_cod_unicom := 8011;       
           end if;*/
-          
+        
           ll_cod_unicom := lcur_callejero_rec.cod_unicom;
         
           insert into intfopen.callejero
@@ -136,6 +139,6 @@ end;
 
 --select * from deptos;
 
---select * from callejero where programa = 'EDM_CONV'
+--select * from callejero where cod_munic = 107;
 
 --select * from edmgalatee.dg_geostruct where cod_munic is not null

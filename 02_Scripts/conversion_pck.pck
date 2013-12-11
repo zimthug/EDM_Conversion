@@ -66,20 +66,9 @@ create or replace package conversion_pck is
   function map_codes(ls_system_id in varchar2, ls_code_type in varchar2,
                      ls_code in varchar2) return varchar2;
 
-  /** 
-   * Procedure to load the table INT_SUPPLY with the data from Galatee. INT_SUPPLY is the main staging table for 
-   * premise, customer, account, supply point and service data for CMS. It is in this table where the data is 
-   * transformed to fit CMS equivalence codes.
-   * 
-   * @author          tmlangeni@eservicios.indracompany.com
-   * @see p02_int_supply_access
-   * @see p02_int_supply_eclipse
-  */
-  procedure p02_int_supply_galatee;
+  procedure p01_geographical_structure;
 
-  procedure p02_int_supply_access;
-
-  procedure p02_int_supply_eclipse;
+  procedure p02_int_supply_all(gls_system_id in varchar2);
 
   procedure p03_int_meter_galatee;
 
@@ -93,6 +82,9 @@ create or replace package conversion_pck is
 
   procedure p07_reading_routes;
 
+  /**
+  * 
+  */
   procedure p20_billing(pll_nis_rad in number default 0);
 
   procedure p30_deposits;
@@ -102,22 +94,26 @@ create or replace package body conversion_pck is
 
   gll_max_surname number := 25;
 
+  type cadastramento_rec is record(
+    system_id     varchar2(2),
+    centre        varchar2(5),
+    client        varchar2(12),
+    ordre         varchar2(3),
+    meter_no      varchar2(30),
+    cod_calle     number,
+    cod_unicom    number,
+    plot_num      varchar2(10),
+    telephone_one varchar2(30),
+    telephone_two varchar2(30),
+    address       varchar2(120),
+    gps_x         float,
+    gps_y         float,
+    acc_finca     varchar2(50));
+
   procedure logger(p_run_id in number, p_program_name in varchar2,
                    p_message in varchar2, p_status in varchar2,
                    p_row_count in number) is
   begin
-  
-    /*
-     create table CONV_LOGGER
-      (
-        f_actual  DATE not null,
-        run_id    NUMBER not null,
-        program   VARCHAR2(30) not null,
-        message   VARCHAR2(4000) not null,
-        status    VARCHAR2(60) not null,
-        row_count NUMBER
-      )
-    */
   
     insert into conv_logger
       (f_actual, run_id, program, message, status, row_count)
@@ -137,20 +133,266 @@ create or replace package body conversion_pck is
        p_id_number);
   end error_logger;
 
-  procedure p01_geographical_structure is
+  procedure galatee_undefined_streets is
+    cursor ix is
+      select distinct centre from edmgalatee.client;
+    ll_area             number;
+    ll_cod_depto        number;
+    ll_cod_calle        number;
+    ll_cod_unicom       number;
+    ll_cod_munic_maputo number;
+    ll_cod_munic_matola number;
+    ll_cod_local_maputo number;
+    ll_cod_local_matola number;
+    ls_nom_munic        varchar2(30);
+    ls_nom_local        varchar2(30);
   begin
-    null;
+    for i in 1 .. 2 loop
+      if i = 1 then
+        select cod_depto
+          into ll_cod_depto
+          from deptos
+         where nom_depto = 'MAPUTO CIDADE';
+      
+        select max(cod_munic) + 1 into ll_cod_munic_maputo from municipios;
+      
+        select max(cod_local) + 1
+          into ll_cod_local_maputo
+          from localidades;
+      
+        ls_nom_munic := 'UNDEFINED MAPUTO CIDADE';
+      
+      else
+        select cod_depto
+          into ll_cod_depto
+          from deptos
+         where nom_depto = 'MAPUTO PROVINCIA';
+      
+        select max(cod_munic) + 1 into ll_cod_munic_matola from municipios;
+      
+        select max(cod_local) + 1
+          into ll_cod_local_matola
+          from localidades;
+      
+        ls_nom_munic := 'UNDEFINED MAPUTO PROVINCIA';
+      end if;
+    
+      insert into municipios
+        (usuario, f_actual, programa, cod_prov, cod_depto, cod_munic,
+         nom_munic, nas_code, nom_munic_arab)
+      values
+        ('CONV_EDM', trunc(sysdate), 'CONV_EDM', 1, ll_cod_depto,
+         decode(i, 1, ll_cod_munic_maputo, ll_cod_munic_matola),
+         ls_nom_munic, ' ', ls_nom_munic);
+    
+      ls_nom_local := ls_nom_munic;
+    
+      insert into localidades
+        (usuario, f_actual, programa, cod_prov, cod_depto, cod_munic,
+         cod_local, nom_local, area_ejec, nas_code, nom_local_arab)
+      values
+        ('CONV_EDM', trunc(sysdate), 'CONV_EDM', 1, ll_cod_depto,
+         decode(i, 1, ll_cod_munic_maputo, ll_cod_munic_matola),
+         decode(i, 1, ll_cod_local_maputo, ll_cod_local_matola),
+         ls_nom_local, 0,
+         decode(i, 1, ll_cod_local_maputo, ll_cod_local_matola),
+         ls_nom_local);
+    
+    end loop;
+  
+    select max(cod_calle) into ll_cod_calle from callejero;
+  
+    for x in ix loop
+    
+      if x.centre in ('006', '040') then
+        ll_area       := 2;
+        ll_cod_unicom := 3013;
+      elsif x.centre in ('050') then
+        ll_area       := 2;
+        ll_cod_unicom := 1260;
+      elsif x.centre in ('060') then
+        ll_area       := 2;
+        ll_cod_unicom := 1312;
+      else
+        ll_area       := 1;
+        ll_cod_unicom := 5101;
+      end if;
+    
+      ll_cod_calle := ll_cod_calle + 1;
+    
+      select cod_depto
+        into ll_cod_depto
+        from municipios
+       where cod_munic =
+             decode(ll_area, 1, ll_cod_munic_maputo, ll_cod_munic_matola);
+    
+      insert into callejero
+        (usuario, f_actual, programa, cod_calle, cod_prov, cod_depto,
+         cod_munic, cod_local, nom_calle, tip_via, cod_unicom, cod_oficom,
+         ind_urb_rur, cod_post, cod_centec, tip_via2, nas_code,
+         nom_calle_arab, ifs_dep_code)
+      values
+        ('CONV_EDM', trunc(sysdate), 'CONV_EDM', ll_cod_calle, 1,
+         ll_cod_depto,
+         decode(ll_area, 1, ll_cod_munic_maputo, ll_cod_munic_matola),
+         decode(ll_area, 1, ll_cod_local_maputo, ll_cod_local_matola),
+         'UNDEFINED CENTRE ' || x.centre, 'TV008', ll_cod_unicom,
+         ll_cod_unicom, 1, ' ', ll_cod_unicom, ' ', ll_cod_calle,
+         'UNDEFINED CENTRE ' || x.centre, 0);
+    
+    end loop;
+  end galatee_undefined_streets;
+
+  procedure p01_geographical_structure is
+  
+    cursor lcur_deptos is
+      select distinct cod_pro,
+                      trim(regexp_replace(prov, '[[:punct:]]', null)) prov
+        from edmgalatee.dg_geostruct
+       where cod_pro in (10, 11, 9);
+  
+    cursor lcur_munic(pll_cod_pro in number) is
+      select distinct cod_dist, distrito
+        from edmgalatee.dg_geostruct
+       where cod_pro = pll_cod_pro
+         and cod_unicom is not null
+       order by 2;
+  
+    cursor lcur_localidade(pll_cod_dist in number) is
+      select distinct e.cod_pa, e.pa, e.cod_loc, e.loc,
+                      pa || case
+                        when loc = pa then
+                         null
+                        else
+                         ' - ' || loc
+                      end localidade
+        from edmgalatee.dg_geostruct e
+       where cod_dist = pll_cod_dist
+         and cod_unicom is not null
+       order by 1;
+  
+    cursor lcur_callejero(pll_cod_pa in number, pll_cod_loc in number) is
+      select distinct e.cod_bairro, e.bairro, e.cod_unicom
+        from edmgalatee.dg_geostruct e
+       where cod_pa = pll_cod_pa
+         and cod_loc = pll_cod_loc
+         and cod_unicom is not null;
+  
+    ll_cod_depto  number;
+    ll_cod_munic  number;
+    ll_cod_local  number;
+    ll_cod_calle  number;
+    ll_cod_unicom number;
+    ll_cod_prov   number := 1;
+    ls_usuario    varchar2(15) := 'CONV_EDM';
+    ls_programa   varchar2(15) := 'CONV_EDM';
+  begin
+    select nvl(max(cod_depto), 9) into ll_cod_depto from intfopen.deptos;
+  
+    select nvl(max(cod_munic) + 5, 99)
+      into ll_cod_munic
+      from intfopen.municipios;
+  
+    select nvl(max(cod_local) + 50, 999)
+      into ll_cod_local
+      from intfopen.localidades;
+  
+    select nvl(max(cod_calle) + 100, 50)
+      into ll_cod_calle
+      from intfopen.callejero;
+  
+    for lcur_deptos_rec in lcur_deptos loop
+    
+      ll_cod_depto := ll_cod_depto + 1;
+    
+      insert into intfopen.deptos
+        (usuario, f_actual, programa, cod_prov, cod_depto, nom_depto,
+         nom_depto_arab)
+      values
+        (ls_usuario, trunc(sysdate), ls_programa, ll_cod_prov, ll_cod_depto,
+         upper(lcur_deptos_rec.prov), upper(lcur_deptos_rec.prov));
+    
+      update edmgalatee.dg_geostruct a
+         set cod_depto = ll_cod_depto
+       where a.cod_pro = lcur_deptos_rec.cod_pro;
+    
+      for lcur_munic_rec in lcur_munic(lcur_deptos_rec.cod_pro) loop
+      
+        ll_cod_munic := ll_cod_munic + 1;
+      
+        insert into intfopen.municipios
+          (usuario, f_actual, programa, cod_prov, cod_depto, cod_munic,
+           nom_munic, nas_code, nom_munic_arab)
+        values
+          (ls_usuario, trunc(sysdate), ls_programa, ll_cod_prov,
+           ll_cod_depto, ll_cod_munic, upper(lcur_munic_rec.distrito), ' ',
+           upper(lcur_munic_rec.distrito));
+      
+        update edmgalatee.dg_geostruct a
+           set a.cod_munic = ll_cod_munic
+         where a.cod_dist = lcur_munic_rec.cod_dist;
+      
+        for lcur_localidade_rec in lcur_localidade(lcur_munic_rec.cod_dist) loop
+        
+          ll_cod_local := ll_cod_local + 1;
+        
+          insert into intfopen.localidades
+            (usuario, f_actual, programa, cod_prov, cod_depto, cod_munic,
+             cod_local, nom_local, area_ejec, nas_code, nom_local_arab)
+          values
+            (ls_usuario, trunc(sysdate), ls_programa, ll_cod_prov,
+             ll_cod_depto, ll_cod_munic, ll_cod_local,
+             upper(trim(lcur_localidade_rec.localidade)), 0, ll_cod_local,
+             upper(trim(lcur_localidade_rec.localidade)));
+        
+          update edmgalatee.dg_geostruct a
+             set a.cod_local = ll_cod_local
+           where a.cod_pa = lcur_localidade_rec.cod_pa
+             and a.cod_loc = lcur_localidade_rec.cod_loc;
+        
+          for lcur_callejero_rec in lcur_callejero(lcur_localidade_rec.cod_pa,
+                                                   lcur_localidade_rec.cod_loc) loop
+          
+            ll_cod_calle := ll_cod_calle + 1;
+          
+            /*if lcur_callejero_rec.cod_unicom is null then
+              ll_cod_unicom := 8011;       
+            end if;*/
+          
+            ll_cod_unicom := lcur_callejero_rec.cod_unicom;
+          
+            insert into intfopen.callejero
+              (usuario, f_actual, programa, cod_calle, cod_prov, cod_depto,
+               cod_munic, cod_local, nom_calle, tip_via, cod_unicom,
+               cod_oficom, ind_urb_rur, cod_post, cod_centec, tip_via2,
+               nas_code, nom_calle_arab, ifs_dep_code)
+            values
+              (ls_usuario, trunc(sysdate), ls_programa, ll_cod_calle,
+               ll_cod_prov, ll_cod_depto, ll_cod_munic, ll_cod_local,
+               upper(trim(lcur_callejero_rec.bairro)), 'TV008',
+               ll_cod_unicom, ll_cod_unicom, 1, ' ', ll_cod_unicom, ' ',
+               ll_cod_calle, upper(trim(lcur_callejero_rec.bairro)), 0);
+          
+            update edmgalatee.dg_geostruct a
+               set a.cod_calle = ll_cod_calle, a.cod_unicom = ll_cod_unicom
+             where a.cod_bairro = lcur_callejero_rec.cod_bairro;
+          
+          end loop;
+        end loop;
+      end loop;
+    end loop;
+    galatee_undefined_streets;
   end p01_geographical_structure;
 
-  /** 
-   * Procedure to split customer names into first name, surname, other names and title.
-   * 
-   * @author          tmlangeni@eservicios.indracompany.com
-   */
   procedure split_long_names(pls_name in varchar2, names$ out name_rec) is
-    ls_name     varchar2(100);
-    ls_nom_cli  varchar2(60);
-    ls_ape1_cli varchar2(60);
+    /** 
+    * Procedure to split customer names into first name, surname, other names and title.
+    * 
+    * @author          tmlangeni@eservicios.indracompany.com
+    */
+    ls_name     varchar2(400);
+    ls_nom_cli  varchar2(260);
+    ls_ape1_cli varchar2(260);
   begin
     ls_name := replace(replace(replace(pls_name, '.', ' '), '&', ' '), '-',
                        ' ');
@@ -164,15 +406,16 @@ create or replace package body conversion_pck is
     end loop;
   
     names$.ape2_cli := ' ';
-    names$.nom_cli  := ls_nom_cli;
-    names$.ape1_cli := ls_ape1_cli;
+    names$.nom_cli  := substr(ls_nom_cli, 1, 30);
+    names$.ape1_cli := substr(ls_ape1_cli, 1, 25);
   
   exception
     when others then
-      dbms_output.put_line(pls_name);
+      dbms_output.put_line('SPLIT_LONG_NAMES  Error: ' || sqlerrm ||
+                           ' ::>' || pls_name);
   end split_long_names;
 
-  function get_galatee_address(pls_centre in varchar2,
+  /*function get_galatee_address(pls_centre in varchar2,
                                pls_client in varchar2) return varchar2 is
     --Getting customer address from  the Galatee database.
     ls_address varchar2(60);
@@ -187,7 +430,7 @@ create or replace package body conversion_pck is
   exception
     when no_data_found then
       return null;
-  end get_galatee_address;
+  end get_galatee_address;*/
 
   function map_codes(ls_system_id in varchar2, ls_code_type in varchar2,
                      ls_code in varchar2) return varchar2 is
@@ -209,8 +452,15 @@ create or replace package body conversion_pck is
   end map_codes;
 
   function sanitize_address(pls_duplicador in varchar2) return varchar2 is
+    ls_address varchar2(300);
   begin
-    return replace(pls_duplicador, '~', null);
+    ls_address := nvl(regexp_replace(pls_duplicador, '[[:cntrl:]]', null),
+                      ' ');
+    if substr(ls_address, 1, 1) <> '|' then
+      ls_address := '|' || ls_address;
+    end if;
+  
+    return replace(ls_address, '~', null);
   end sanitize_address;
 
   procedure normalize_int_supply is
@@ -219,7 +469,7 @@ create or replace package body conversion_pck is
     update int_supply set duplicador = ' ' where duplicador is null;
   
     /*  Put num_puerta (house/ plot number) from Data Gathering */
-    for lcur_puerta_rec in (select duplicador, num_puerta, client,
+    /*for lcur_puerta_rec in (select duplicador, num_puerta, client,
                                    c.bocl_nocasa, s.rowid
                               from int_supply s,
                                    edmcamp.customers_registered_one c
@@ -247,7 +497,7 @@ create or replace package body conversion_pck is
         when others then
           null;
       end;
-    end loop;
+    end loop;*/
   
     /*  Separate telephone numbers which were put as two numbers in one field from old system*/
     begin
@@ -286,144 +536,294 @@ create or replace package body conversion_pck is
   
   end normalize_int_supply;
 
-  procedure p02_int_supply_galatee is
-    /*
-    * name: P02_INT_SUPPLY_GALATEE      @author: TML   date: 16/07/2013   type: procedure
-    * Loads the staging table with the transformed data from Galatee.
-    * Details will be the base for creating premise, customer, account and service
-    *
-    */
-    cursor lcur_galatee is
-      select *
-        from edmgalatee.client c
-       where exists (select 0
-                from edmgalatee.abon
-               where centre = c.centre
-                 and client = c.client
-                 and ordre = c.ordre)
-         and not exists (select 0
-                from int_supply
-               where centre = c.centre
-                 and client = c.client
-                 and ordre = c.ordre);
-    names$           name_rec;
-    lf_alta          date;
-    lf_baja          date;
-    ll_gis_x         float;
-    ll_gis_y         float;
-    ll_potencia      float;
-    ll_conv_id       number;
-    ll_cod_mask      number;
-    ll_cod_calle     number;
-    ll_cod_unicom    number;
-    ll_gr_concepto   number;
-    ll_imp_tot_rec   number;
-    ll_imp_deposito  number;
-    ls_cod_tar       varchar2(3);
-    ls_est_sum       varchar2(5);
-    ls_tip_fin       varchar2(5);
-    ls_tip_cod       varchar2(5);
-    ls_tip_cli       varchar2(5);
-    ls_tip_doc       varchar2(5);
-    ls_cod_cnae      varchar2(5);
-    ls_doc_id        varchar2(12);
-    ls_address       varchar2(60);
-    ls_telemovel_one varchar2(30);
-    ls_telemovel_two varchar2(30);
+  procedure process_supply_data(cadastramento$ in out cadastramento_rec) is
+    lf_date_created date;
+    ls_premise_type varchar2(100);
+    ls_address_dg   varchar2(400);
+  begin
+    begin
+      if cadastramento$.system_id in ('01', '02') then
+        select d.cod_calle, d.cod_unicom
+          into cadastramento$.cod_calle, cadastramento$.cod_unicom
+          from edmcamp.cadastramento c, edmgalatee.dg_geostruct d
+         where c.bairro_id = d.cod_bairro
+           and c.centre = to_char(to_number(cadastramento$.centre))
+           and c.client = to_char(to_number(cadastramento$.client))
+           and rownum <= 1;
+      elsif cadastramento$.system_id = '03' then
+        /* For Eclipse we use the meter not the account numbers. */
+        select d.cod_calle, d.cod_unicom
+          into cadastramento$.cod_calle, cadastramento$.cod_unicom
+          from edmcamp.cadastramento c, edmgalatee.dg_geostruct d
+         where c.bairro_id = d.cod_bairro
+           and c.meter_no = to_char(to_number(cadastramento$.client))
+           and rownum <= 1;
+      end if;
+    exception
+      when no_data_found then
+        cadastramento$.cod_calle  := null;
+        cadastramento$.cod_unicom := null;
+    end;
+  
+    begin
+      ls_address_dg := cadastramento$.address;
+    
+      if cadastramento$.system_id in ('01', '02') then
+        select a.gps_x, a.gps_y, a.landmark_descriptive_address,
+               substr(a.plot_hse_no, 1, 10), a.bocl_telemovel_1,
+               a.bocl_telemovel_2, a.meter_no, a.premise_type,
+               a.date_of_creation
+          into cadastramento$.gps_x, cadastramento$.gps_y, ls_address_dg,
+               cadastramento$.plot_num, cadastramento$.telephone_one,
+               cadastramento$.telephone_two, cadastramento$.meter_no,
+               ls_premise_type, lf_date_created
+          from edmcamp.cadastramento a
+         where a.client = to_char(to_number(cadastramento$.client))
+           and a.centre = to_char(to_number(cadastramento$.centre))
+           and rownum <= 1;
+      else
+        select a.gps_x, a.gps_y, a.landmark_descriptive_address,
+               substr(a.plot_hse_no, 1, 10), a.bocl_telemovel_1,
+               a.bocl_telemovel_2, a.meter_no, a.premise_type,
+               a.date_of_creation
+          into cadastramento$.gps_x, cadastramento$.gps_y, ls_address_dg,
+               cadastramento$.plot_num, cadastramento$.telephone_one,
+               cadastramento$.telephone_two, cadastramento$.meter_no,
+               ls_premise_type, lf_date_created
+          from edmcamp.cadastramento a
+         where a.meter_no = to_char(to_number(cadastramento$.client))
+           and rownum <= 1;
+      end if;
+    
+      ls_address_dg := substr(ls_address_dg, 1, 90);
+    
+      if trim(ls_address_dg) is not null and
+         trim(cadastramento$.address) is null then
+        cadastramento$.address   := trim(ls_address_dg);
+        cadastramento$.acc_finca := substr(ls_address_dg, 1, 50);
+      else
+        cadastramento$.acc_finca := nvl(substr(ls_address_dg, 1, 50),
+                                        substr(cadastramento$.address, 1, 50));
+        cadastramento$.address   := substr(cadastramento$.address, 1, 90);
+      end if;
+    
+    exception
+      when no_data_found then
+        cadastramento$.acc_finca := ' ';
+        cadastramento$.address   := nvl(substr(cadastramento$.address, 1, 90),
+                                        ' ');
+    end;
+  end process_supply_data;
+
+  /**
+  * <b>Procedure</b></br>
+  * Procedure to load the table INT_SUPPLY with the data from Galatee, Access and Eclipse. 
+  * INT_SUPPLY is the main staging table for creation of premise, customer, account, supply point 
+  * and service data for CMS. It is in this table where the data is 
+  * transformed and CMS equivalence codes are added to the data. 
+  *
+  * @param gls_system_id This is varchar2 in. The valid values for this parameter are
+  * <ul>
+  *  <li> '01' - For Galatee</li>
+  *  <li> '02' - For Access</li>
+  *  <li> '03' - For Eclipse</li>
+  * </ul>
+  * It is required to specify the system one would like to convert for table INT_SUPPLY
+  * @author tmlangeni@eservicios.indracompany.com
+  */
+  procedure p02_int_supply_all(gls_system_id in varchar2) is
+  
+    type lcur_data_rec is record(
+      system_id varchar2(2),
+      centre    varchar2(10),
+      client    varchar2(20),
+      ordre     varchar2(2),
+      fullname  varchar2(300),
+      title     varchar2(30),
+      firstname varchar2(120),
+      surname   varchar2(120),
+      tarif     varchar2(60),
+      address   varchar2(4000),
+      nuit      varchar2(30),
+      tel_one   varchar2(30),
+      tel_two   varchar2(30),
+      email     varchar2(300),
+      pot       float,
+      f_baja    date,
+      f_alta    date,
+      est_serv  varchar2(5));
+  
+    lcur_data_rec$     lcur_data_rec;
+    lf_alta            date;
+    lf_baja            date;
+    ll_potencia        float;
+    ll_conv_id         number;
+    ll_cod_mask        number;
+    ll_gr_concepto     number;
+    ll_imp_tot_rec     number;
+    ll_imp_deposito    number;
+    ll_cod_unicom_serv number;
+    names$             name_rec;
+    ls_conso           varchar2(9);
+    ls_cod_tar         varchar2(3);
+    ls_est_sum         varchar2(5);
+    ls_tip_fin         varchar2(5);
+    ls_tip_cod         varchar2(5);
+    ls_tip_cli         varchar2(5);
+    ls_tip_doc         varchar2(5);
+    ls_cod_cnae        varchar2(5);
+    ls_doc_id          varchar2(12);
+    ls_address         varchar2(90);
+    ls_acc_finca       varchar2(50);
+    lcur_data          sys_refcursor;
+    cadastramento$     cadastramento_rec;
+  
+    function get_galatee_record return sys_refcursor is
+      lcur_galatee sys_refcursor;
+    begin
+      open lcur_galatee for
+        select '01' system_id, a.centre, a.client, c.ordre,
+               c.nomabon fullname, denabon title, ' ' firstname,
+               nomabon surname, a.tarif,
+               nvl(trim('|' || nomrue || ' ' || numrue || ' ' || comprue || ' ' ||
+                         etage), ' ') address, nuit, g.telephone tel_one,
+               ' ' tel_two, c.email, a.puissance pot, a.dres f_baja,
+               a.dabon f_alta,
+               case
+                 when trim(dres) is null then
+                  'EC012'
+                 else
+                  'EC021'
+               end est_serv
+          from edmgalatee.client c, edmgalatee.abon a, edmgalatee.ag g
+         where c.centre = a.centre
+           and c.centre = g.centre
+           and c.client = a.client
+           and c.client = g.ag
+           and not exists (select 0
+                  from int_supply
+                 where centre = c.centre
+                   and client = c.client
+                   and ordre = c.ordre);
+    
+      return lcur_galatee;
+    end get_galatee_record;
+  
+    function get_access_record return sys_refcursor is
+      lcur_access sys_refcursor;
+    begin
+      open lcur_access for
+        select '02' system_id, to_char(d.zona) centre,
+               to_char(d.no_da_instalacao) client, '0' ordre,
+               trim(apelido || ' ' || nome) fullname, ' ' title,
+               apelido firstname, nome surname, to_char(d.categoria) tarif,
+               '|' || endereco address, nuit, ' ' tel_one, ' ' tel_two,
+               d.email, d.potencia pot, t.datanovocontador f_baja,
+               t.data_de_instalacao f_alta,
+               decode(d.activo, 1, 'EC012', 'EC021') est_serv
+          from edmaccess.consumidores d, edmaccess.contador t
+         where d.zona = t.zona
+           and d.no_da_instalacao = t.no_da_instalacao
+           and not exists
+         (select 0
+                  from int_supply
+                 where centre = to_char(d.zona)
+                   and client = to_char(d.no_da_instalacao));
+    
+      return lcur_access;
+    end get_access_record;
+  
+    function get_eclipse_record return sys_refcursor is
+      lcur_eclipse sys_refcursor;
+    begin
+      open lcur_eclipse for
+        select '03' system_id, '999' centre, msno client, '00' ordre,
+               trim(e.legal_entity_name || ' ' || e.first_names) fullname,
+               ' ' title, first_names firstname, e.legal_entity_name surname,
+               e.meter_trf_code tarif,
+               trim('|' || e.loc_addr1 || ' ' || e.loc_addr2 || ' ' ||
+                     e.loc_addr3) address, ' ' nuit, e.tel tel_one,
+               ' ' tel_two, e.email, 0 pot,
+               to_date(29991231, 'yyyymmdd') f_baja, e.inst_date f_alta,
+               'EC012' est_serv
+          from edmeclipse.customer_data e
+         where status = 'Active'
+           and regexp_instr(msno, '[[:alpha:]]') = 0
+           and not exists
+         (select 0 from int_supply where client = e.msno);
+    
+      return lcur_eclipse;
+    end get_eclipse_record;
+  
   begin
   
     select run_id.nextval into gll_run_id from dual;
   
     select nvl(max(conv_id), 1000000) into ll_conv_id from int_supply;
   
-    for lcur_galatee_rec in lcur_galatee loop
+    if gls_system_id = '01' then
+      lcur_data := get_galatee_record;
+    elsif gls_system_id = '02' then
+      lcur_data := get_access_record;
+    elsif gls_system_id = '03' then
+      lcur_data := get_eclipse_record;
+    else
+      raise_application_error(-20008,
+                              'You have specified invalid parameter for system to convert.' ||
+                               chr(10) ||
+                               'Valid values are ''01'',''02'' and ''03''');
+    end if;
+  
+    loop
       begin
+        fetch lcur_data
+          into lcur_data_rec$;
+        exit when lcur_data%notfound;
+        --Reset values for types to remove values from previous record.
+        names$                   := null;
+        cadastramento$           := null;
+        ll_conv_id               := ll_conv_id + 1;
+        cadastramento$.ordre     := lcur_data_rec$.ordre;
+        cadastramento$.centre    := lcur_data_rec$.centre;
+        cadastramento$.client    := lcur_data_rec$.client;
+        cadastramento$.address   := lcur_data_rec$.address;
+        cadastramento$.system_id := lcur_data_rec$.system_id;
       
-        names$ := null;
+        process_supply_data(cadastramento$);
       
-        if length(lcur_galatee_rec.nomabon) > gll_max_surname then
-          split_long_names(lcur_galatee_rec.nomabon, names$);
-        else
-          names$.ape1_cli := lcur_galatee_rec.nomabon;
+        lf_alta := nvl(lcur_data_rec$.f_alta, trunc(sysdate));
+        lf_baja := nvl(lcur_data_rec$.f_baja, glf_fechanulla);
+      
+        if gls_system_id = '01' then
+        
+          select lpad(conso, 6, '0')
+            into ls_conso
+            from edmgalatee.client a
+           where centre = lcur_data_rec$.centre
+             and client = lcur_data_rec$.client
+             and ordre = lcur_data_rec$.ordre;
+        
+        elsif gls_system_id = '02' then
+          select tipo_de_client
+            into ls_conso
+            from edmaccess.consumidores c
+           where zona = lcur_data_rec$.centre
+             and c.no_da_instalacao = lcur_data_rec$.client;
+        elsif gls_system_id = '03' then
+          ls_conso := '0000';
         end if;
       
-        names$.cualif_cli := map_codes(ls_system_id => '01',
-                                       ls_code_type => 'TT000',
-                                       ls_code => '0000' ||
-                                                   lcur_galatee_rec.denabon);
-      
-        ll_conv_id := ll_conv_id + 1;
-      
-        ls_address := get_galatee_address(lcur_galatee_rec.centre,
-                                          lcur_galatee_rec.client);
-      
-        begin
-          select case
-                   when trim(dres) is null then
-                    'EC012'
-                   else
-                    'EC021'
-                 end, ab.dabon, nvl(ab.dres, to_date(29991231, 'yyyymmdd')),
-                 tarif, ab.puissance
-            into ls_est_sum, lf_alta, lf_baja, ls_cod_tar, ll_potencia
-            from edmgalatee.abon ab
-           where centre = lcur_galatee_rec.centre
-             and client = lcur_galatee_rec.client
-             and ordre = lcur_galatee_rec.ordre;
-        
-        exception
-          when no_data_found then
-            ls_est_sum := 'EC021';
-            lf_alta    := to_date(19991201, 'yyyymmdd');
-            lf_baja    := to_date(29991231, 'yyyymmdd');
-        end;
-      
-        begin
-        
-          select d.cod_calle, d.cod_unicom,
-                 decode(c.bocl_telemovel_1, 'NULL', null, c.bocl_telemovel_1),
-                 decode(c.bocl_telemovel_2, 'NULL', null, c.bocl_telemovel_2)
-            into ll_cod_calle, ll_cod_unicom, ls_telemovel_one,
-                 ls_telemovel_two
-            from edmcamp.customers_registered_one c,
-                 edmgalatee.dg_geostruct d, edmgalatee.client a
-           where c.bobr_idbairro = d.cod_bairro
-             and c.bocl_contratoagencia =
-                 to_number(lcur_galatee_rec.centre)
-             and c.bocl_contratonumero = to_number(lcur_galatee_rec.client)
-             and rownum <= 1;
-        
-          /*select cod_calle, cod_unicom
-           into ll_cod_calle, ll_cod_unicom
-           from edmgalatee.ag a, callejero c, edmgalatee.rues r
-          where upper(r.nrue) = upper(c.nom_calle)
-            and a.rue = r.rue
-            and a.centre = lcur_galatee_rec.centre
-            and a.ag = lcur_galatee_rec.client
-            and rownum <= 1;*/
-        exception
-          when no_data_found then
-            ll_cod_calle     := 0;
-            ll_cod_unicom    := 0;
-            ls_telemovel_one := null;
-            ls_telemovel_two := null;
-        end;
-      
-        if (lcur_galatee_rec.telephone is null or
-           regexp_instr(lcur_galatee_rec.telephone, '[[:digit:]]') = 0) and
-           regexp_instr(ls_telemovel_one, '[[:digit:]]') > 0 then
-          lcur_galatee_rec.telephone := ls_telemovel_one;
-        elsif regexp_instr(lcur_galatee_rec.telephone, '[[:digit:]]') > 0 and
-              regexp_instr(ls_telemovel_one, '[[:digit:]]') > 0 then
-          ls_telemovel_two := ls_telemovel_one;
+        --Get tariff and related items 
+        if gls_system_id = '03' then
+          lcur_data_rec$.tarif := '0';
         end if;
       
         begin
           select a.cod_tar, a.gr_concepto, cod_mask
             into ls_cod_tar, ll_gr_concepto, ll_cod_mask
             from int_map_tariffs a
-           where a.system_id = '01'
-             and to_number(a.obs_tariff) = to_number(ls_cod_tar);
+           where a.system_id = lcur_data_rec$.system_id
+             and to_number(a.obs_tariff) = to_number(lcur_data_rec$.tarif);
         
           select cod_mask
             into ll_cod_mask
@@ -438,11 +838,12 @@ create or replace package body conversion_pck is
         end;
       
         ls_tip_cli := map_codes(ls_system_id => '01',
-                                ls_code_type => 'TC000',
-                                ls_code => lpad(lcur_galatee_rec.conso, 6, '0'));
+                                ls_code_type => 'TC000', ls_code => ls_conso);
       
-        --This is a crude way to map types, however i think there is no better way right now
-        --Maybe the data from DATA_GATHERING will have these types properly mapped
+        /*
+        This is a crude way to map types, however i think there is no better way right now
+        Maybe the data from DATA_GATHERING will have these types properly mapped
+        */
         if ls_cod_tar in ('E01', 'E02') then
           ls_tip_fin := 'TF105';
           ls_tip_cod := 'PT001';
@@ -454,38 +855,36 @@ create or replace package body conversion_pck is
           ls_tip_cod := 'PT002';
         end if;
       
-        --Using NUIT for DOC_ID 
-        --TODO Get the proper mapping             
-        /*
-        if trim(lcur_galatee_rec.nuit) is not null then
-          ls_tip_doc := 'TD005';
-          ls_doc_id  := trim(lcur_galatee_rec.nuit);
-        else
-          ls_tip_doc := 'TD006';
-          ls_doc_id  := lcur_galatee_rec.centre || lcur_galatee_rec.client ||
-                        lcur_galatee_rec.ordre;
-        end if;
-        */
+        --Setting the TIP_DOC and DOC_ID values.
         ls_doc_id  := ' ';
         ls_tip_doc := 'TD001';
       
-        --CLIENT.CONSO    ---select * from edmgalatee.ta where num = '13'
+        if ls_tip_cli <> 'TC001' and trim(lcur_data_rec$.nuit) is not null and
+           regexp_instr(lcur_data_rec$.nuit, '[[:alpha:]]') = 0 then
+          ls_tip_doc := 'TD007';
+          ls_doc_id  := substr(lcur_data_rec$.nuit, 1, 15);
+        end if;
       
-        begin
-          --Other details from campaigns
-          select a.bocl_xcoord, a.bocl_ycoord
-            into ll_gis_x, ll_gis_y
-            from edmcamp.customers_registered a
-           where a.bocl_contratonumero =
-                 to_char(to_number(lcur_galatee_rec.client))
-             and a.bocl_contratoagencia =
-                 to_char(to_number(lcur_galatee_rec.centre))
-             and rownum <= 1;
-        exception
-          when no_data_found then
-            ll_gis_x := 0;
-            ll_gis_y := 0;
-        end;
+        --Setting the names.....
+        if lcur_data_rec$.system_id = '01' then
+          if length(lcur_data_rec$.fullname) > gll_max_surname then
+            split_long_names(lcur_data_rec$.fullname, names$);
+          else
+            names$.ape1_cli := lcur_data_rec$.fullname;
+          end if;
+        else
+          if length(lcur_data_rec$.firstname) <= 30 and
+             length(lcur_data_rec$.surname) <= 25 then
+            names$.ape1_cli := lcur_data_rec$.surname;
+            names$.nom_cli  := lcur_data_rec$.firstname;
+          else
+            if length(lcur_data_rec$.fullname) < 60 then
+              split_long_names(lcur_data_rec$.fullname, names$);
+            else
+              split_long_names(lcur_data_rec$.surname, names$);
+            end if;
+          end if;
+        end if;
       
         if ls_cod_tar in ('E01', 'E04', 'E09', 'E10') then
           ls_cod_cnae := '1000';
@@ -505,38 +904,39 @@ create or replace package body conversion_pck is
           ls_cod_cnae := '9999';
         end if;
       
-        begin
-          /*Other bills and payments (No deposits)*/
-          select nvl(sum(decode(dc, 'D', montant, -montant)), 0)
-            into ll_imp_tot_rec
-            from edmgalatee.lclient
-           where centre = lcur_galatee_rec.centre
-             and client = lcur_galatee_rec.client
-             and ordre = lcur_galatee_rec.ordre
-             and coper not in ('070', '075');
-        exception
-          when no_data_found then
-            ll_imp_tot_rec := 0;
-        end;
+        if lcur_data_rec$.system_id = '01' then
+          begin
+          
+            select nvl(sum(decode(dc, 'D', montant, -montant)), 0)
+              into ll_imp_tot_rec
+              from edmgalatee.lclient
+             where centre = lcur_data_rec$.centre
+               and client = lcur_data_rec$.client
+               and ordre = lcur_data_rec$.ordre
+               and coper not in ('070', '075');
+          exception
+            when no_data_found then
+              ll_imp_tot_rec := 0;
+          end;
+        
+          begin
+            /*Security deposit bills */
+            select nvl(sum(decode(dc, 'D', montant, -montant)), 0)
+              into ll_imp_deposito
+              from edmgalatee.lclient
+             where centre = lcur_data_rec$.centre
+               and client = lcur_data_rec$.client
+               and ordre = lcur_data_rec$.ordre
+               and coper in ('070', '075');
+          exception
+            when no_data_found then
+              ll_imp_deposito := 0;
+          end;
+        
+        end if;
       
-        begin
-          /*Security deposit bills */
-          select nvl(sum(decode(dc, 'D', montant, -montant)), 0)
-            into ll_imp_deposito
-            from edmgalatee.lclient
-           where centre = lcur_galatee_rec.centre
-             and client = lcur_galatee_rec.client
-             and ordre = lcur_galatee_rec.ordre
-             and coper in ('070', '075');
-        exception
-          when no_data_found then
-            ll_imp_deposito := 0;
-        end;
-      
-        ls_address := sanitize_address(ls_address);
-      
-        ls_address := nvl(regexp_replace(ls_address, '[[:cntrl:]]', null),
-                          ' ');
+        ls_address   := sanitize_address(cadastramento$.address);
+        ls_acc_finca := sanitize_address(cadastramento$.acc_finca);
       
         names$.nom_cli := nvl(regexp_replace(names$.nom_cli, '[[:cntrl:]]',
                                              null), ' ');
@@ -547,186 +947,65 @@ create or replace package body conversion_pck is
         names$.ape2_cli := nvl(regexp_replace(names$.ape2_cli, '[[:cntrl:]]',
                                               null), ' ');
       
+        --Give customers streets and unicoms....
+        if lcur_data_rec$.system_id = '01' and
+           cadastramento$.cod_calle is null then
+          select cod_calle, cod_unicom
+            into cadastramento$.cod_calle, cadastramento$.cod_unicom
+            from callejero
+           where nom_calle = 'UNDEFINED CENTRE ' || lcur_data_rec$.centre;
+        end if;
+      
+        begin
+          select cod_unicom_serv
+            into ll_cod_unicom_serv
+            from int_offices
+           where cod_mask = ll_cod_mask
+             and cod_unicom = cadastramento$.cod_unicom;
+        exception
+          when no_data_found then
+            ll_cod_unicom_serv := 0;
+        end;
+      
+        ll_potencia := lcur_data_rec$.pot;
+      
+        if trim(ls_acc_finca) is null or trim(ls_acc_finca) = '|' then
+          ls_acc_finca := substr(ls_address, 1, 50);
+        end if;
+      
+        ls_est_sum := lcur_data_rec$.est_serv;
+      
         insert into int_supply
           (conv_id, system_id, centre, client, ordre, nomabon, ape1_cli,
            ape2_cli, nom_cli, cualif_cli, duplicador, acc_finca, cod_calle,
            est_sum, nuit, cod_unicom, f_alta, f_baja, cod_mask, cod_tar,
            gr_concepto, email, telefone1, doc_id, tip_doc, tip_fin, tip_cod,
            tip_cli, gis_x, gis_y, pot, telefone2, cod_cnae, imp_tot_rec,
-           imp_deposito)
+           imp_deposito, cod_unicom_serv)
         values
-          (ll_conv_id, 1, lcur_galatee_rec.centre, lcur_galatee_rec.client,
-           lcur_galatee_rec.ordre, lcur_galatee_rec.nomabon, names$.ape1_cli,
-           names$.ape2_cli, names$.nom_cli, names$.cualif_cli, ls_address,
-           ls_address, ll_cod_calle, ls_est_sum, lcur_galatee_rec.nuit,
-           ll_cod_unicom, lf_alta, lf_baja, ll_cod_mask, ls_cod_tar,
-           ll_gr_concepto, lcur_galatee_rec.email,
-           nvl(lcur_galatee_rec.telephone, ' '), ls_doc_id, ls_tip_doc,
-           ls_tip_fin, ls_tip_cod, ls_tip_cli, ll_gis_x, ll_gis_y,
-           ll_potencia, nvl(ls_telemovel_two, ' '), ls_cod_cnae,
-           ll_imp_tot_rec, ll_imp_deposito);
+          (ll_conv_id, lcur_data_rec$.system_id, lcur_data_rec$.centre,
+           lcur_data_rec$.client, lcur_data_rec$.ordre,
+           lcur_data_rec$.fullname, names$.ape1_cli, names$.ape2_cli,
+           names$.nom_cli, names$.cualif_cli, ls_address, ls_acc_finca,
+           cadastramento$.cod_calle, ls_est_sum, lcur_data_rec$.nuit,
+           cadastramento$.cod_unicom, lf_alta, lf_baja, ll_cod_mask,
+           ls_cod_tar, ll_gr_concepto, lcur_data_rec$.email,
+           nvl(cadastramento$.telephone_one, ' '), ls_doc_id, ls_tip_doc,
+           ls_tip_fin, ls_tip_cod, ls_tip_cli, nvl(cadastramento$.gps_x, 0),
+           nvl(cadastramento$.gps_y, 0), ll_potencia,
+           nvl(cadastramento$.telephone_two, ' '), ls_cod_cnae,
+           ll_imp_tot_rec, ll_imp_deposito, ll_cod_unicom_serv);
       
       exception
         when others then
-          error_logger(sqlerrm, gll_run_id, 'CP2_INT_SUPPLY', 'CLIEN',
-                       lcur_galatee_rec.client);
+          dbms_output.put_line(sqlerrm || '  --> ' ||
+                               lcur_data_rec$.client);
       end;
     end loop;
-    normalize_int_supply;
-  end p02_int_supply_galatee;
-
-  procedure p02_int_supply_access is
-    cursor lcur_access is
-      select * from edmaccess.consumidores c where activo = 1;
-    names$           name_rec;
-    lf_alta          date;
-    lf_baja          date;
-    ll_gis_x         float;
-    ll_gis_y         float;
-    ll_potencia      float;
-    ll_conv_id       number;
-    ll_cod_mask      number;
-    ll_cod_calle     number;
-    ll_cod_unicom    number;
-    ll_gr_concepto   number;
-    ll_imp_tot_rec   number;
-    ll_imp_deposito  number;
-    ls_cod_tar       varchar2(3);
-    ls_est_sum       varchar2(5);
-    ls_tip_fin       varchar2(5);
-    ls_tip_cod       varchar2(5);
-    ls_tip_cli       varchar2(5);
-    ls_tip_doc       varchar2(5);
-    ls_cod_cnae      varchar2(5);
-    ls_doc_id        varchar2(12);
-    ls_address       varchar2(60);
-    ls_telemovel_one varchar2(30);
-    ls_telemovel_two varchar2(30);
-  begin
-    select run_id.nextval into gll_run_id from dual;
   
-    select nvl(max(conv_id), 1000000) into ll_conv_id from int_supply;
-  
-    for lcur_access_rec in lcur_access loop
-    
-      ll_conv_id := ll_conv_id + 1;
-    
-    end loop;
     normalize_int_supply;
-  end p02_int_supply_access;
-
-  procedure p02_int_supply_eclipse is
-    cursor lcur_eclipse is
-      select *
-        from edmeclipse.customer_data e
-       where status = 'Active'
-         and regexp_instr(msno, '[[:alpha:]]') = 0
-         and not exists
-       (select 0 from int_supply where client = e.msno);
-    ll_gis_x         float;
-    ll_gis_y         float;
-    ll_conv_id       number;
-    ll_cod_calle     number;
-    ll_cod_unicom    number;
-    ll_gr_concepto   number;
-    names$           name_rec;
-    ls_tip_cli       varchar2(5);
-    ls_cod_tar       varchar2(5);
-    ls_est_sum       varchar2(5);
-    ls_tip_fin       varchar2(5);
-    ls_tip_cod       varchar2(5);
-    ls_cod_cnae      varchar2(5);
-    ls_telemovel_one varchar2(60);
-    ls_telemovel_two varchar2(60);
-    ls_fullname      varchar2(300);
-    ls_duplicador    varchar2(200);
-  begin
-    select nvl(max(conv_id), 1000000) into ll_conv_id from int_supply;
   
-    for lcur_eclipse_rec in lcur_eclipse loop
-    
-      ll_conv_id := ll_conv_id + 1;
-    
-      ls_fullname := nvl(trim(lcur_eclipse_rec.legal_entity_name || ' ' ||
-                              lcur_eclipse_rec.first_names), ' ');
-    
-      if length(ls_fullname) > gll_max_surname then
-        split_long_names(ls_fullname, names$);
-      else
-        names$.ape1_cli := ls_fullname;
-      end if;
-    
-      ls_duplicador := nvl(trim(lcur_eclipse_rec.loc_addr1 || ' ' ||
-                                lcur_eclipse_rec.loc_addr2 || ' ' ||
-                                lcur_eclipse_rec.loc_addr3), ' ');
-    
-      begin
-        select d.cod_calle, d.cod_unicom,
-               decode(c.bocl_telemovel_1, 'NULL', null, c.bocl_telemovel_1),
-               decode(c.bocl_telemovel_2, 'NULL', null, c.bocl_telemovel_2)
-          into ll_cod_calle, ll_cod_unicom, ls_telemovel_one,
-               ls_telemovel_two
-          from edmcamp.customers_registered_one c, edmgalatee.dg_geostruct d
-         where c.bobr_idbairro = d.cod_bairro
-           and lcur_eclipse_rec.msno = lpad(c.bocl_nocontador, 11, 0)
-           and rownum <= 1;
-      exception
-        when no_data_found then
-          ll_cod_calle     := 0;
-          ll_cod_unicom    := 0;
-          ls_telemovel_one := null;
-          ls_telemovel_two := null;
-      end;
-    
-      begin
-        --Other details from campaigns
-        select a.bocl_xcoord, a.bocl_ycoord
-          into ll_gis_x, ll_gis_y
-          from edmcamp.customers_registered_one a
-         where lcur_eclipse_rec.msno = lpad(bocl_nocontador, 11, 0)
-           and rownum <= 1;
-      exception
-        when no_data_found then
-          ll_gis_x := 0;
-          ll_gis_y := 0;
-      end;
-    
-      ls_est_sum     := 'EC012';
-      ls_cod_tar     := 'E10';
-      ll_gr_concepto := 1;
-    
-      if trim(lcur_eclipse_rec.tel) is null or
-         regexp_instr(lcur_eclipse_rec.tel, '[[:alpha:]]') > 0 then
-        null;
-      else
-        ls_telemovel_one := lcur_eclipse_rec.tel;
-      end if;
-    
-      ls_tip_cli  := 'TC001';
-      ls_tip_fin  := 'TF105';
-      ls_tip_cod  := 'PT001';
-      ls_cod_cnae := '1000';
-    
-      insert into int_supply
-        (conv_id, system_id, centre, client, ordre, nomabon, ape1_cli,
-         ape2_cli, nom_cli, cualif_cli, duplicador, acc_finca, cod_calle,
-         est_sum, nuit, cod_unicom, f_alta, f_baja, cod_mask, cod_tar,
-         gr_concepto, email, telefone1, doc_id, tip_doc, tip_fin, tip_cod,
-         tip_cli, gis_x, gis_y, pot, telefone2, cod_cnae, imp_tot_rec,
-         imp_deposito)
-      values
-        (ll_conv_id, 3, '999', lcur_eclipse_rec.msno, '00', ls_fullname,
-         names$.ape1_cli, names$.ape2_cli, names$.nom_cli, ' ',
-         ls_duplicador, substr(ls_duplicador, 1, 50), ll_cod_calle,
-         ls_est_sum, ' ', ll_cod_unicom, trunc(lcur_eclipse_rec.inst_date),
-         glf_fechanulla, 2048, ls_cod_tar, ll_gr_concepto,
-         lcur_eclipse_rec.email, ls_telemovel_one, null, 'TD001', ls_tip_fin,
-         ls_tip_cod, ls_tip_cli, ll_gis_x, ll_gis_y, 0, ls_telemovel_two,
-         ls_cod_cnae, 0, 0);
-    
-    end loop;
-    normalize_int_supply;
-  end p02_int_supply_eclipse;
+  end p02_int_supply_all;
 
   procedure p03_int_meter_galatee is
     cursor lcur_int_meter is
@@ -1526,7 +1805,9 @@ create or replace package body conversion_pck is
         for x in (select s.nis_rad || lpad(s.sec_factura, 3, '0') as cod_ref,
                          nis_rad
                     from sumcon s) loop
-          update recibos set cod_ref = x.cod_ref where nis_rad = x.nis_rad;
+          update recibos
+             set cod_ref = x.cod_ref, simbolo_var = x.cod_ref
+           where nis_rad = x.nis_rad;
         end loop;
       end;
     

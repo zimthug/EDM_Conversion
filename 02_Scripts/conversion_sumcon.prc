@@ -1,11 +1,16 @@
 create or replace procedure conversion_sumcon is
+  /**
+  * @author vomondi@indracompany.com
+  * @author tmlangeni@eservicios.indracompany.com
+  * @version 20131130
+  *
+  */
   cursor lcur_sumcon is
     select *
       from int_supply
      where nis_rad is null
        and cod_cli is not null
        and sec_cta is not null;
-
   ll_nis_rad             number;
   ll_nis_rad_2           number;
   ll_nis_rad_7           number;

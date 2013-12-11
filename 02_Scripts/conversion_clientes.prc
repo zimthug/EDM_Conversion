@@ -11,6 +11,7 @@ create or replace procedure conversion_clientes is
       from int_supply
      where nif is not null
        and cod_cli is null;
+  ll_num            number := 0;
   ll_commit         number := 0;
   ll_cod_cli        number := 0;
   ll_nrh            number := 0;
@@ -69,9 +70,10 @@ begin
          ' ', ' ', lcur_clientes_rec.nif,
          nvl(lcur_clientes_rec.telefone2, ' '), ' ', 'EK001', 'SS000', ' ',
          lcur_clientes_rec.ape1_cli, lcur_clientes_rec.ape2_cli, ' ',
-         lcur_clientes_rec.nom_cli, lcur_clientes_rec.ape1_cli, 2, 'RL999',
-         trunc(sysdate), ' ', 'JT000', 0, to_date('19000101', 'YYYYMMDD'),
-         ' ', nvl(lcur_clientes_rec.email, ' '), ' ', ' ',
+         substr(lcur_clientes_rec.nom_cli, 1, 25),
+         lcur_clientes_rec.ape1_cli, 2, 'RL999', trunc(sysdate), ' ',
+         'JT000', 0, to_date('19000101', 'YYYYMMDD'), ' ',
+         nvl(lcur_clientes_rec.email, ' '), ' ', ' ',
          conversion_pck.glf_fechanulla, ' ', ' ');
     
       /*
@@ -89,6 +91,9 @@ begin
          and client = lcur_clientes_rec.client;
     
       if ll_employee > 0 then
+      
+        ll_num := ll_num + 1;
+      
         insert into personal
           (usuario, f_actual, programa, cod_emp, ape1_emp, ape2_emp,
            nomb_emp, cod_unicom, tip_emp, f_alta, cod_ctrat, peso_emp,
@@ -97,15 +102,13 @@ begin
            nom_usr, est_emp, cod_cli)
         values
           (conversion_pck.gls_programa, trunc(sysdate),
-           conversion_pck.gls_programa,
-           lcur_clientes_rec.centre ||
-            substr(lcur_clientes_rec.client, 1, 4),
-           lcur_clientes_rec.ape1_cli, lcur_clientes_rec.ape2_cli,
-           lcur_clientes_rec.nom_cli, lcur_clientes_rec.cod_unicom, 'PN900',
-           lcur_clientes_rec.f_alta, 0, 0, 1, ' ', lcur_clientes_rec.f_alta,
-           ' ', 0, ' ', lcur_clientes_rec.ape1_cli,
-           lcur_clientes_rec.ape2_cli, ' ', lcur_clientes_rec.nom_cli,
-           lcur_clientes_rec.client, 'CF001', ll_cod_cli);
+           conversion_pck.gls_programa, ll_num, lcur_clientes_rec.ape1_cli,
+           lcur_clientes_rec.ape2_cli, lcur_clientes_rec.nom_cli,
+           lcur_clientes_rec.cod_unicom, 'PN900', lcur_clientes_rec.f_alta,
+           0, 0, 1, ' ', lcur_clientes_rec.f_alta, ' ', 0, ' ',
+           lcur_clientes_rec.ape1_cli, lcur_clientes_rec.ape2_cli, ' ',
+           lcur_clientes_rec.nom_cli, lcur_clientes_rec.client, 'CF001',
+           ll_cod_cli);
       
       end if;
     

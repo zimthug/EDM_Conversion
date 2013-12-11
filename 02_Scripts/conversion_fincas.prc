@@ -30,6 +30,14 @@ begin
       --What the hell is this cod_nas????
       ls_cod_nas := lpad(ll_nif, 17, 0);
     
+      if substr(lcur_fincas_rec.duplicador, 1, 1) <> '|' then
+        lcur_fincas_rec.duplicador := '|' || lcur_fincas_rec.duplicador;
+      end if;
+    
+      if substr(lcur_fincas_rec.acc_finca, 1, 1) <> '|' then
+        lcur_fincas_rec.acc_finca := '|' || lcur_fincas_rec.acc_finca;
+      end if;
+    
       insert into intfopen.fincas
         (usuario, f_actual, programa, nif, cod_calle, num_puerta,
          duplicador, cod_oficom, acc_finca, est_fin, tip_fin, f_inst,
