@@ -24,6 +24,8 @@ create or replace procedure conversion_clientes is
   ll_co_cond_fiscal varchar2(6) := 'FC540';
   ls_program_name   varchar2(15) := 'CP3_CLIENTES';
 begin
+  --select nvl(max(cod_emp), 0) into ll_num from personal;
+
   select run_id.nextval into conversion_pck.gll_run_id from dual;
 
   --Log first to begin the program
@@ -67,20 +69,21 @@ begin
          ll_nrh_fav, ll_nrh_pen, ll_fax_cli, ll_pers_contacto,
          ll_co_cond_fiscal, '  ', '  ', '  ', lcur_clientes_rec.cualif_cli,
          0, 0, nvl(lcur_clientes_rec.nuit, ' '), lcur_clientes_rec.ape1_cli,
-         ' ', ' ', lcur_clientes_rec.nif,
-         nvl(lcur_clientes_rec.telefone2, ' '), ' ', 'EK001', 'SS000', ' ',
-         lcur_clientes_rec.ape1_cli, lcur_clientes_rec.ape2_cli, ' ',
+         '/1/6/ / / / / / /', ' ', lcur_clientes_rec.nif,
+         nvl(lcur_clientes_rec.telefone2, ' '), '/0/0/', 'EK001', 'SS000',
+         ' ', lcur_clientes_rec.ape1_cli, lcur_clientes_rec.ape2_cli, ' ',
          substr(lcur_clientes_rec.nom_cli, 1, 25),
          lcur_clientes_rec.ape1_cli, 2, 'RL999', trunc(sysdate), ' ',
          'JT000', 0, to_date('19000101', 'YYYYMMDD'), ' ',
          nvl(lcur_clientes_rec.email, ' '), ' ', ' ',
          conversion_pck.glf_fechanulla, ' ', ' ');
     
+      /* 20140305 => To be handled in BONIFICACIONES and at the level of Supply (CONVERSION_SUMCON) */
       /*
       If customer is employee add into PERSONAL. We should get the employee number from
       the mapping to be provided by EDM. 
       */
-      select count(*)
+      /* select count(*)
         into ll_employee
         from edmgalatee.client
        where conso in (select substr(obs_code, -4)
@@ -89,7 +92,7 @@ begin
                           and cms_desc = 'EMPLOYEE')
          and centre = lcur_clientes_rec.centre
          and client = lcur_clientes_rec.client;
-    
+      
       if ll_employee > 0 then
       
         ll_num := ll_num + 1;
@@ -110,7 +113,7 @@ begin
            lcur_clientes_rec.nom_cli, lcur_clientes_rec.client, 'CF001',
            ll_cod_cli);
       
-      end if;
+      end if;*/
     
       update int_supply
          set cod_cli = ll_cod_cli
@@ -137,6 +140,11 @@ begin
         commit;
     end;
   end loop;
+
+  update clientes
+     set tip_doc = 'TD007', doc_id = num_fiscal
+   where tip_cli <> 'TC001'
+     and trim(num_fiscal) is not null;
 
   --Log end of running
   conversion_pck.logger(p_run_id => conversion_pck.gll_run_id,

@@ -68,32 +68,46 @@ create or replace package conversion_pck is
 
   procedure p01_geographical_structure;
 
+  procedure split_long_names(pls_name in varchar2, names$ out name_rec);
+
   procedure p02_int_supply_all(gls_system_id in varchar2);
 
-  procedure p03_int_meter_galatee;
+  procedure p03_int_meter_postpaid;
 
-  procedure p03_int_meter_eclipse;
+  procedure p03_int_meter_prepaid;
 
-  procedure run_phase3;
+  procedure p04_run_phase3;
 
-  procedure p05_metering;
+  procedure p05_apmedida_ap;
 
-  procedure p06_readings;
+  procedure p06_readings_galatee;
+
+  procedure p06_readings_access;
+
+  procedure p06_readings_cleanup;
 
   procedure p07_reading_routes;
 
   /**
   * 
   */
-  procedure p20_billing(pll_nis_rad in number default 0);
+  procedure p20_billing_galatee(pll_nis_rad in number default 0);
 
   procedure p30_deposits;
+
+  procedure p40_conversion_clean_up;
+
 end conversion_pck;
 /
 create or replace package body conversion_pck is
 
   gll_max_surname number := 25;
 
+  /** 
+  * Oracle PL/SQL type of record. This record will contain all the variables which will be used by the
+  * {@link p02_int_supply_all} procedure.
+  * @author tmlangeni@eservicios.indracompany.com
+  */
   type cadastramento_rec is record(
     system_id     varchar2(2),
     centre        varchar2(5),
@@ -108,8 +122,12 @@ create or replace package body conversion_pck is
     address       varchar2(120),
     gps_x         float,
     gps_y         float,
-    acc_finca     varchar2(50));
+    acc_finca     varchar2(50),
+    tip_fase      varchar2(5));
 
+  /** 
+   * 
+  */
   procedure logger(p_run_id in number, p_program_name in varchar2,
                    p_message in varchar2, p_status in varchar2,
                    p_row_count in number) is
@@ -160,7 +178,7 @@ create or replace package body conversion_pck is
           into ll_cod_local_maputo
           from localidades;
       
-        ls_nom_munic := 'UNDEFINED MAPUTO CIDADE';
+        ls_nom_munic := 'MAPUTO CIDADE';
       
       else
         select cod_depto
@@ -174,7 +192,7 @@ create or replace package body conversion_pck is
           into ll_cod_local_matola
           from localidades;
       
-        ls_nom_munic := 'UNDEFINED MAPUTO PROVINCIA';
+        ls_nom_munic := 'MAPUTO PROV';
       end if;
     
       insert into municipios
@@ -236,9 +254,8 @@ create or replace package body conversion_pck is
          ll_cod_depto,
          decode(ll_area, 1, ll_cod_munic_maputo, ll_cod_munic_matola),
          decode(ll_area, 1, ll_cod_local_maputo, ll_cod_local_matola),
-         'UNDEFINED CENTRE ' || x.centre, 'TV008', ll_cod_unicom,
-         ll_cod_unicom, 1, ' ', ll_cod_unicom, ' ', ll_cod_calle,
-         'UNDEFINED CENTRE ' || x.centre, 0);
+         'CENTRE ' || x.centre, 'TV008', ll_cod_unicom, ll_cod_unicom, 1,
+         ' ', ll_cod_unicom, ' ', ll_cod_calle, 'CENTRE ' || x.centre, 0);
     
     end loop;
   end galatee_undefined_streets;
@@ -415,7 +432,7 @@ create or replace package body conversion_pck is
                            ' ::>' || pls_name);
   end split_long_names;
 
-  /*function get_galatee_address(pls_centre in varchar2,
+  /*{%skip}function get_galatee_address(pls_centre in varchar2,
                                pls_client in varchar2) return varchar2 is
     --Getting customer address from  the Galatee database.
     ls_address varchar2(60);
@@ -468,8 +485,8 @@ create or replace package body conversion_pck is
   
     update int_supply set duplicador = ' ' where duplicador is null;
   
-    /*  Put num_puerta (house/ plot number) from Data Gathering */
-    /*for lcur_puerta_rec in (select duplicador, num_puerta, client,
+    /*{%skip}  Put num_puerta (house/ plot number) from Data Gathering */
+    /*{%skip}for lcur_puerta_rec in (select duplicador, num_puerta, client,
                                    c.bocl_nocasa, s.rowid
                               from int_supply s,
                                    edmcamp.customers_registered_one c
@@ -497,7 +514,8 @@ create or replace package body conversion_pck is
         when others then
           null;
       end;
-    end loop;*/
+    end loop;
+    */
   
     /*  Separate telephone numbers which were put as two numbers in one field from old system*/
     begin
@@ -563,6 +581,17 @@ create or replace package body conversion_pck is
       when no_data_found then
         cadastramento$.cod_calle  := null;
         cadastramento$.cod_unicom := null;
+        begin
+          if cadastramento$.system_id = '01' then
+            select d.cod_calle, d.cod_unicom
+              into cadastramento$.cod_calle, cadastramento$.cod_unicom
+              from callejero d
+             where d.nom_calle = 'CENTRE ' || cadastramento$.centre;
+          end if;
+        exception
+          when no_data_found then
+            null;
+        end;
     end;
   
     begin
@@ -572,11 +601,11 @@ create or replace package body conversion_pck is
         select a.gps_x, a.gps_y, a.landmark_descriptive_address,
                substr(a.plot_hse_no, 1, 10), a.bocl_telemovel_1,
                a.bocl_telemovel_2, a.meter_no, a.premise_type,
-               a.date_of_creation
+               a.date_of_creation, decode(a.phases, 3, 'FA002', 'FA001')
           into cadastramento$.gps_x, cadastramento$.gps_y, ls_address_dg,
                cadastramento$.plot_num, cadastramento$.telephone_one,
                cadastramento$.telephone_two, cadastramento$.meter_no,
-               ls_premise_type, lf_date_created
+               ls_premise_type, lf_date_created, cadastramento$.tip_fase
           from edmcamp.cadastramento a
          where a.client = to_char(to_number(cadastramento$.client))
            and a.centre = to_char(to_number(cadastramento$.centre))
@@ -585,11 +614,11 @@ create or replace package body conversion_pck is
         select a.gps_x, a.gps_y, a.landmark_descriptive_address,
                substr(a.plot_hse_no, 1, 10), a.bocl_telemovel_1,
                a.bocl_telemovel_2, a.meter_no, a.premise_type,
-               a.date_of_creation
+               a.date_of_creation, decode(a.phases, 3, 'FA002', 'FA001')
           into cadastramento$.gps_x, cadastramento$.gps_y, ls_address_dg,
                cadastramento$.plot_num, cadastramento$.telephone_one,
                cadastramento$.telephone_two, cadastramento$.meter_no,
-               ls_premise_type, lf_date_created
+               ls_premise_type, lf_date_created, cadastramento$.tip_fase
           from edmcamp.cadastramento a
          where a.meter_no = to_char(to_number(cadastramento$.client))
            and rownum <= 1;
@@ -671,6 +700,7 @@ create or replace package body conversion_pck is
     ls_tip_cod         varchar2(5);
     ls_tip_cli         varchar2(5);
     ls_tip_doc         varchar2(5);
+    ls_tip_fase        varchar2(5);
     ls_cod_cnae        varchar2(5);
     ls_doc_id          varchar2(12);
     ls_address         varchar2(90);
@@ -678,6 +708,10 @@ create or replace package body conversion_pck is
     lcur_data          sys_refcursor;
     cadastramento$     cadastramento_rec;
   
+    /**
+    * This function will return a refcursor from GALATEE. This cursor records
+    * will be used for loading INT_SUPPLY table.
+    */
     function get_galatee_record return sys_refcursor is
       lcur_galatee sys_refcursor;
     begin
@@ -700,6 +734,7 @@ create or replace package body conversion_pck is
            and c.centre = g.centre
            and c.client = a.client
            and c.client = g.ag
+           and c.ordre = '01'
            and not exists (select 0
                   from int_supply
                  where centre = c.centre
@@ -859,8 +894,10 @@ create or replace package body conversion_pck is
         ls_doc_id  := ' ';
         ls_tip_doc := 'TD001';
       
-        if ls_tip_cli <> 'TC001' and trim(lcur_data_rec$.nuit) is not null and
-           regexp_instr(lcur_data_rec$.nuit, '[[:alpha:]]') = 0 then
+        if /*ls_tip_cli <> 'TC001' and*/
+         trim(lcur_data_rec$.nuit) is not null and
+        /*regexp_instr(lcur_data_rec$.nuit, '[[:alpha:]]') = 0*/
+         regexp_like(lcur_data_rec$.nuit, '^[[:digit:]]+$') then
           ls_tip_doc := 'TD007';
           ls_doc_id  := substr(lcur_data_rec$.nuit, 1, 15);
         end if;
@@ -975,26 +1012,39 @@ create or replace package body conversion_pck is
       
         ls_est_sum := lcur_data_rec$.est_serv;
       
+        /*
+        * Get the number of phases. Assumption is that all the COD_MASK 4096 customers are three 
+        * phase unless specified otherwise in Cadastramento.
+        */
+        ls_tip_fase := cadastramento$.tip_fase;
+      
+        if ll_cod_mask = 4096 and ls_tip_fase is null then
+          ls_tip_fase := 'FA002';
+        elsif ll_cod_mask <> 4096 and ls_tip_fase is null then
+          ls_tip_fase := 'FA001';
+        end if;
+      
         insert into int_supply
           (conv_id, system_id, centre, client, ordre, nomabon, ape1_cli,
            ape2_cli, nom_cli, cualif_cli, duplicador, acc_finca, cod_calle,
            est_sum, nuit, cod_unicom, f_alta, f_baja, cod_mask, cod_tar,
            gr_concepto, email, telefone1, doc_id, tip_doc, tip_fin, tip_cod,
            tip_cli, gis_x, gis_y, pot, telefone2, cod_cnae, imp_tot_rec,
-           imp_deposito, cod_unicom_serv)
+           imp_deposito, cod_unicom_serv, tip_fase, ref_dir)
         values
           (ll_conv_id, lcur_data_rec$.system_id, lcur_data_rec$.centre,
            lcur_data_rec$.client, lcur_data_rec$.ordre,
            lcur_data_rec$.fullname, names$.ape1_cli, names$.ape2_cli,
-           names$.nom_cli, names$.cualif_cli, ls_address, ls_acc_finca,
-           cadastramento$.cod_calle, ls_est_sum, lcur_data_rec$.nuit,
-           cadastramento$.cod_unicom, lf_alta, lf_baja, ll_cod_mask,
-           ls_cod_tar, ll_gr_concepto, lcur_data_rec$.email,
+           names$.nom_cli, names$.cualif_cli, upper(ls_address),
+           upper(ls_acc_finca), cadastramento$.cod_calle, ls_est_sum,
+           lcur_data_rec$.nuit, cadastramento$.cod_unicom, lf_alta, lf_baja,
+           ll_cod_mask, ls_cod_tar, ll_gr_concepto, lcur_data_rec$.email,
            nvl(cadastramento$.telephone_one, ' '), ls_doc_id, ls_tip_doc,
            ls_tip_fin, ls_tip_cod, ls_tip_cli, nvl(cadastramento$.gps_x, 0),
            nvl(cadastramento$.gps_y, 0), ll_potencia,
            nvl(cadastramento$.telephone_two, ' '), ls_cod_cnae,
-           ll_imp_tot_rec, ll_imp_deposito, ll_cod_unicom_serv);
+           ll_imp_tot_rec, ll_imp_deposito, ll_cod_unicom_serv, ls_tip_fase,
+           substr(upper(trim(cadastramento$.address)), 1, 40));
       
       exception
         when others then
@@ -1007,25 +1057,35 @@ create or replace package body conversion_pck is
   
   end p02_int_supply_all;
 
-  procedure p03_int_meter_galatee is
+  /**
+  * @author TML
+  * 
+  */
+  procedure p03_int_meter_postpaid is
     cursor lcur_int_meter is
-      select *
+      select '01' system_id, a.centre, a.ag client, produit, a.compteur,
+             a.datepose
         from edmgalatee.canalisation a
-       where (centre, ag) in (select centre, client from int_supply)
+       where (centre, ag, '01') in
+             (select centre, client, system_id from int_supply)
          and a.point = 1
          and datedepose is null
          and regexp_instr(a.compteur, '[[:digit:]]') > 0
          and a.compteur is not null
          and a.compteur not in
-             ('A00CREDELEC', 'A0000009999', 'A0000000000', '000000000000',
-              'A00RAMAL', 'A00000FALHA', 'A0DUPLICADO', 'CR0000000000',
-              'A00000RAMAL', 'A0000000001', 'A00DUPLICADO', 'A00CREDELC',
-              'A00000000000')
-         and a.compteur not like '%CREDELEC%'
+             (select meter_no from int_skip_meters where ind_activated = 1)
          and not exists (select 0
                 from int_meter
                where centre = a.centre
-                 and client = a.ag);
+                 and client = a.ag)
+         and a.compteur not like '%CREDLEC%'
+      union
+      select '02' system_id, to_char(zona) centre,
+             to_char(c.no_da_instalacao) client, '01' produit,
+             c.no_do_contador compteur, c.data_de_instalacao datepose
+        from edmaccess.contador c
+       where (to_char(zona), to_char(no_da_instalacao), '02') in
+             (select centre, client, system_id from int_supply);
     lf_visit        date;
     ll_same         number;
     ll_conv_id      number;
@@ -1059,7 +1119,7 @@ create or replace package body conversion_pck is
          where c.bocl_contratoagencia =
                to_char(to_number(lcur_int_meter_rec.centre))
            and c.bocl_contratonumero =
-               to_char(to_number(lcur_int_meter_rec.ag))
+               to_char(to_number(lcur_int_meter_rec.client))
            and rownum <= 1
            and c.bocl_dtligacao =
                (select max(bocl_dtligacao)
@@ -1067,7 +1127,7 @@ create or replace package body conversion_pck is
                  where c.bocl_contratoagencia =
                        to_char(to_number(lcur_int_meter_rec.centre))
                    and c.bocl_contratonumero =
-                       to_char(to_number(lcur_int_meter_rec.ag)));
+                       to_char(to_number(lcur_int_meter_rec.client)));
       exception
         when no_data_found then
           ls_camp_num_apa := null;
@@ -1079,7 +1139,7 @@ create or replace package body conversion_pck is
          lf_visit > lcur_int_meter_rec.datepose then
         ls_num_apa := ls_camp_num_apa;
       else
-        ls_num_apa := lcur_int_meter_rec.compteur;
+        ls_num_apa := substr(lcur_int_meter_rec.compteur, 1, 20);
       end if;
       /*
       if ls_camp_num_apa is null or
@@ -1094,18 +1154,20 @@ create or replace package body conversion_pck is
         end if;
       */
       --Prepaid meter /*TODO*/ confirm if this is correct
-      if substr(ls_num_apa, 1, 2) in ('01', '22') and
+      /*if substr(ls_num_apa, 1, 2) in ('01', '22') and
          length(ls_num_apa) = 11 then
         ls_tip_apa := 'TA100';
-      end if;
+      end if;*/
     
       insert into int_meter
         (conv_id, system_id, centre, client, ordre, compteur, num_apa,
          co_marca, co_modelo, tip_apa, est_apa, co_prop_apa, f_inst, cte_apa,
          f_fabric, sec_pm, sec_apa, camp_num_apa)
       values
-        (ll_conv_id, 1, lcur_int_meter_rec.centre, lcur_int_meter_rec.ag,
-         lcur_int_meter_rec.produit, lcur_int_meter_rec.compteur, ls_num_apa,
+        (ll_conv_id, lcur_int_meter_rec.system_id,
+         lcur_int_meter_rec.centre, lcur_int_meter_rec.client,
+         lcur_int_meter_rec.produit,
+         /*substr(*/ lcur_int_meter_rec.compteur /*, 1, 20)*/, ls_num_apa,
          ls_co_marca, ls_co_modelo, ls_tip_apa, 'AP011', 'PA003',
          lcur_int_meter_rec.datepose, 1, (lcur_int_meter_rec.datepose - 30),
          1, 1, ls_camp_num_apa);
@@ -1115,48 +1177,56 @@ create or replace package body conversion_pck is
     ls_num_apa  := ' ';
     ls_co_marca := ' ';
   
-    --check for duplicates. The code will be executed thrice making sure all duplicates are removed.
-    for cont in 1 .. 3 loop
-      for lcur_duplicate_rec in (select m.*, rowid
-                                   from int_meter m
-                                  where (num_apa, co_marca) in
-                                        (select num_apa, co_marca
-                                           from int_meter
-                                          group by num_apa, co_marca
-                                         having count(*) between 2 and 10)
-                                  order by num_apa, co_marca) loop
-      
-        if ls_num_apa = lcur_duplicate_rec.num_apa and
-           ls_co_marca = lcur_duplicate_rec.co_marca then
+    --check for duplicates. 
+    declare
+      cursor lcur_duplicate is
+        select m.*, m.rowid
+          from int_meter m
+         where (m.num_apa, m.co_marca) in
+               (select num_apa, co_marca
+                  from int_meter
+                 group by num_apa, co_marca
+                having count(*) between 2 and 10)
+         order by m.num_apa, m.co_marca;
+      lb_loop boolean := true;
+    begin
+      while lb_loop loop
+        lb_loop := false;
+        for lcur_duplicate_rec in lcur_duplicate loop
+          lb_loop := true;
         
-          ll_same := ll_same + 1;
+          if ls_num_apa = lcur_duplicate_rec.num_apa and
+             ls_co_marca = lcur_duplicate_rec.co_marca then
+          
+            ll_same := ll_same + 1;
+          
+            select cod
+              into ls_co_marca_dup
+              from (select cod, rownum re
+                       from (select cod
+                                from codigos
+                               where cod like 'MC___'
+                                 and cod_mask <> 0
+                               order by 1))
+             where re = ll_same;
+          
+            update int_meter
+               set co_marca = ls_co_marca_dup
+             where rowid = lcur_duplicate_rec.rowid;
+          
+          else
+            ll_same := 0;
+          end if;
         
-          select cod
-            into ls_co_marca_dup
-            from (select cod, rownum re
-                     from (select cod
-                              from codigos
-                             where cod like 'MC___'
-                               and cod_mask <> 0
-                             order by 1))
-           where re = ll_same;
+          ls_num_apa  := lcur_duplicate_rec.num_apa;
+          ls_co_marca := lcur_duplicate_rec.co_marca;
         
-          update int_meter
-             set co_marca = ls_co_marca_dup
-           where rowid = lcur_duplicate_rec.rowid;
-        
-        else
-          ll_same := 0;
-        end if;
-      
-        ls_num_apa  := lcur_duplicate_rec.num_apa;
-        ls_co_marca := lcur_duplicate_rec.co_marca;
-      
+        end loop;
       end loop;
-    end loop;
-  end p03_int_meter_galatee;
+    end;
+  end p03_int_meter_postpaid;
 
-  procedure p03_int_meter_eclipse is
+  procedure p03_int_meter_prepaid is
     cursor lcur_int_meter is
       select *
         from edmeclipse.customer_data x
@@ -1203,43 +1273,57 @@ create or replace package body conversion_pck is
          (lcur_int_meter_rec.inst_date - 30), 1, 1);
     
     end loop;
-  end p03_int_meter_eclipse;
+  end p03_int_meter_prepaid;
 
-  procedure run_phase3 is
+  procedure p04_run_phase3 is
   begin
     conversion_fincas;
     conversion_clientes;
     conversion_cuentas_cu;
     conversion_sumcon;
-  end run_phase3;
+  end p04_run_phase3;
 
-  procedure p05_metering is
-    /* 
-     * TML
-    */
+  /** 
+   * This procedure is supposed to load current and historical meters for the services. This procedure should be
+   * executed after {@link p03_int_meter_postpaid}
+   *
+   * @author tmlangeni@eservicios.indracompany.com
+  */
+  procedure p05_apmedida_ap is
+  
     cursor lcur_main is
       select m.conv_id, m.centre, m.client, m.ordre, m.num_apa, m.co_marca,
              m.co_modelo, m.tip_apa, m.est_apa, m.rowid, m.f_inst,
              m.co_prop_apa, m.cte_apa, m.f_fabric, s.nis_rad, s.nif,
-             s.cod_cli, s.f_alta, s.f_baja, s.tip_fase, s.tip_tension
+             s.cod_cli, s.f_alta, s.f_baja, s.tip_fase,
+             nvl(s.tip_tension, 'TM001') tip_tension, m.f_lvto
         from int_meter m, int_supply s
        where m.centre = s.centre
          and m.client = s.client
          and m.ind_converted is null
          and s.nis_rad is not null;
+    /*and m.rowid in (select max(rowid)
+     from int_meter
+    where m.centre = centre
+      and m.client = client);*/
     ls_tip_pm   varchar2(5);
     ls_num_id   varchar2(5);
     ls_num_lote varchar2(15) := '301300000000001';
   begin
   
-    insert into apa_lotes
-      (usuario, f_actual, programa, num_lote, documento, est_lote, cantidad,
-       responsable, observaciones, cod_almacen_origen, cod_almacen_destinado,
-       f_cambio, f_return, test_lote)
-    values
-      (gls_usuario, trunc(sysdate), gls_programa, ls_num_lote, ' ', 'CM036',
-       0, ' ', 'CONVERTED MTRS', 3013, 3013, trunc(sysdate), glf_fechanulla,
-       ' ');
+    begin
+      insert into apa_lotes
+        (usuario, f_actual, programa, num_lote, documento, est_lote,
+         cantidad, responsable, observaciones, cod_almacen_origen,
+         cod_almacen_destinado, f_cambio, f_return, test_lote)
+      values
+        (gls_usuario, trunc(sysdate), gls_programa, ls_num_lote, ' ',
+         'CM036', 0, ' ', 'CONVERTED MTRS', 3013, 3013, trunc(sysdate),
+         glf_fechanulla, ' ');
+    exception
+      when dup_val_on_index then
+        null;
+    end;
   
     for lcur_main_rec in lcur_main loop
     
@@ -1257,76 +1341,116 @@ create or replace package body conversion_pck is
       lcur_main_rec.f_fabric := nvl(lcur_main_rec.f_fabric,
                                     lcur_main_rec.f_alta - 30);
     
-      insert into puntomed
-        (usuario, f_actual, programa, nif_pm, cgv_pm, aol_pm, acc_pm,
-         sec_pm)
-      values
-        (gls_usuario, trunc(sysdate), gls_programa, lcur_main_rec.nif, 0, 1,
-         'AP017', 1);
-    
-      lcur_main_rec.tip_fase := nvl(lcur_main_rec.tip_fase, 'FA001');
-    
-      lcur_main_rec.tip_tension := nvl(lcur_main_rec.tip_tension, 'TM001');
-    
-      insert into puntomed_param
-        (usuario, f_actual, programa, nis_rad, sec_apa, f_val, f_anul,
-         nif_apa, sec_pm, tip_fase, tip_tension, tip_pm, observacion,
-         aol_apa, num_id, valor, porc_csmo, ind_estm, valor1, valor2, datos)
-      values
-        (gls_usuario, trunc(sysdate), gls_programa, lcur_main_rec.nis_rad,
-         1, lcur_main_rec.f_alta, glf_fechanulla, lcur_main_rec.nif, 1,
-         lcur_main_rec.tip_fase, lcur_main_rec.tip_tension, ls_tip_pm, ' ',
-         10, ls_num_id, 0, 0, 2, 0, 0, '/0/0/');
-    
       begin
-        insert into aparatos
-          (usuario, f_actual, programa, num_apa, co_marca, co_modelo,
-           tip_apa, est_apa, cod_almacen, co_prop_apa, f_fabric,
-           f_prox_calibracion, f_prox_verificacion, num_lote, lugar,
-           observaciones, nis_rad, nif_apa, sec_pm, num_precin, error,
-           co_condition, defect, co_fabric, lect, num_os, cod_emp, num_order,
-           num_tender, cod_agent, f_guarantee, num_msr, usage_purpose,
-           ii_result, num_license, num_bill, num_test, num_apa_mf)
+        insert into puntomed
+          (usuario, f_actual, programa, nif_pm, cgv_pm, aol_pm, acc_pm,
+           sec_pm)
         values
-          (gls_usuario, trunc(sysdate), gls_programa, lcur_main_rec.num_apa,
-           lcur_main_rec.co_marca, lcur_main_rec.co_modelo,
-           lcur_main_rec.tip_apa, 'CM036', 3013, lcur_main_rec.co_prop_apa,
-           lcur_main_rec.f_fabric, glf_fechanulla, glf_fechanulla,
-           ls_num_lote, ' ', ' ', lcur_main_rec.nis_rad, lcur_main_rec.nif,
-           1, ' ', ' ', 'AP011', 'DF000', 'FA000', 0, 0, 0, ' ', ' ',
-           'AG000', glf_fechanulla, ' ', 'MU000', ' ', ' ', ' ', ' ',
-           lcur_main_rec.num_apa);
+          (gls_usuario, trunc(sysdate), gls_programa, lcur_main_rec.nif, 0,
+           1, 'AP017', 1);
       
-        insert into haparatos
-          (usuario, f_actual, programa, num_apa, co_marca, f_cambio,
-           est_apa, cod_almacen, num_lote, nis_rad, nif_apa, sec_pm,
-           num_precin, tip_apa, co_modelo, error, co_condition, defect, lect,
-           num_os, cod_emp)
-          select usuario, f_actual, programa, num_apa, co_marca,
-                 trunc(sysdate), est_apa, cod_almacen, num_lote, nis_rad,
-                 nif_apa, sec_pm, num_precin, tip_apa, co_modelo, error,
-                 co_condition, defect, lect, num_os, cod_emp
-            from aparatos
-           where num_apa = lcur_main_rec.num_apa
-             and co_marca = lcur_main_rec.co_marca;
+        lcur_main_rec.tip_fase := nvl(lcur_main_rec.tip_fase, 'FA001');
       
-        insert into apmedida_ap
-          (usuario, f_actual, programa, nis_rad, num_apa, co_marca, est_apa,
-           nif_sum, cgv_sum, nif_apa, tip_apa, co_prop_apa, aol_apa,
-           amperios, tip_fase, tip_tension, coef_per, f_lvto, f_inst,
-           cte_apa, f_fabric, f_urevis, ind_precin, f_precin, tip_per_lect,
-           sec_pm, regulador, dimen_conex, sec_apa, frena, svorkov,
-           num_precin, apa_id, f_ppm, co_accuracy, installed_by, defect)
+        lcur_main_rec.tip_tension := nvl(lcur_main_rec.tip_tension, 'TM001');
+      
+        insert into puntomed_param
+          (usuario, f_actual, programa, nis_rad, sec_apa, f_val, f_anul,
+           nif_apa, sec_pm, tip_fase, tip_tension, tip_pm, observacion,
+           aol_apa, num_id, valor, porc_csmo, ind_estm, valor1, valor2,
+           datos)
         values
           (gls_usuario, trunc(sysdate), gls_programa, lcur_main_rec.nis_rad,
-           lcur_main_rec.num_apa, lcur_main_rec.co_marca,
-           lcur_main_rec.est_apa, lcur_main_rec.nif, ' ', lcur_main_rec.nif,
-           lcur_main_rec.tip_apa, lcur_main_rec.co_prop_apa, 10, ls_num_id,
-           lcur_main_rec.tip_fase, lcur_main_rec.tip_tension, 0,
-           glf_fechanulla, lcur_main_rec.f_inst, 1, lcur_main_rec.f_fabric,
-           glf_fechanulla, 2, glf_fechanulla, 'RU012', 1, ' ', 0, 1, 0, 0,
-           '/0/0/', lcur_main_rec.tip_tension, glf_fechanulla, 'CY001', 1,
-           'DF000');
+           1, lcur_main_rec.f_alta, glf_fechanulla, lcur_main_rec.nif, 1,
+           lcur_main_rec.tip_fase, lcur_main_rec.tip_tension, ls_tip_pm, ' ',
+           10, ls_num_id, 0, 0, 2, 0, 0, '/0/0/');
+      
+      exception
+        when dup_val_on_index then
+          null;
+      end;
+    
+      begin
+      
+        if lcur_main_rec.f_lvto = glf_fechanulla then
+        
+          insert into aparatos
+            (usuario, f_actual, programa, num_apa, co_marca, co_modelo,
+             tip_apa, est_apa, cod_almacen, co_prop_apa, f_fabric,
+             f_prox_calibracion, f_prox_verificacion, num_lote, lugar,
+             observaciones, nis_rad, nif_apa, sec_pm, num_precin, error,
+             co_condition, defect, co_fabric, lect, num_os, cod_emp,
+             num_order, num_tender, cod_agent, f_guarantee, num_msr,
+             usage_purpose, ii_result, num_license, num_bill, num_test,
+             num_apa_mf)
+          values
+            (gls_usuario, trunc(sysdate), gls_programa,
+             lcur_main_rec.num_apa, lcur_main_rec.co_marca,
+             lcur_main_rec.co_modelo, lcur_main_rec.tip_apa, 'CM036', 3013,
+             lcur_main_rec.co_prop_apa, lcur_main_rec.f_fabric,
+             glf_fechanulla, glf_fechanulla, ls_num_lote, ' ', ' ',
+             lcur_main_rec.nis_rad, lcur_main_rec.nif, 1, ' ', ' ', 'AP011',
+             'DF000', 'FA000', 0, 0, 0, ' ', ' ', 'AG000', glf_fechanulla,
+             ' ', 'MU000', ' ', ' ', ' ', ' ', lcur_main_rec.num_apa);
+        
+        end if;
+      
+        /*insert into haparatos
+        (usuario, f_actual, programa, num_apa, co_marca, f_cambio,
+         est_apa, cod_almacen, num_lote, nis_rad, nif_apa, sec_pm,
+         num_precin, tip_apa, co_modelo, error, co_condition, defect, lect,
+         num_os, cod_emp)
+        select usuario, f_actual, programa, num_apa, co_marca,
+               trunc(sysdate), est_apa, cod_almacen, num_lote, nis_rad,
+               nif_apa, sec_pm, num_precin, tip_apa, co_modelo, error,
+               co_condition, defect, lect, num_os, cod_emp
+          from aparatos
+         where num_apa = lcur_main_rec.num_apa
+           and co_marca = lcur_main_rec.co_marca;*/
+      
+        if lcur_main_rec.f_lvto = glf_fechanulla then
+        
+          insert into apmedida_ap
+            (usuario, f_actual, programa, nis_rad, num_apa, co_marca,
+             est_apa, nif_sum, cgv_sum, nif_apa, tip_apa, co_prop_apa,
+             aol_apa, amperios, tip_fase, tip_tension, coef_per, f_lvto,
+             f_inst, cte_apa, f_fabric, f_urevis, ind_precin, f_precin,
+             tip_per_lect, sec_pm, regulador, dimen_conex, sec_apa, frena,
+             svorkov, num_precin, apa_id, f_ppm, co_accuracy, installed_by,
+             defect)
+          values
+            (gls_usuario, trunc(sysdate), gls_programa,
+             lcur_main_rec.nis_rad, lcur_main_rec.num_apa,
+             lcur_main_rec.co_marca, lcur_main_rec.est_apa,
+             lcur_main_rec.nif, ' ', lcur_main_rec.nif,
+             lcur_main_rec.tip_apa, lcur_main_rec.co_prop_apa, 10, ls_num_id,
+             lcur_main_rec.tip_fase, lcur_main_rec.tip_tension, 0,
+             glf_fechanulla, lcur_main_rec.f_inst, 1, lcur_main_rec.f_fabric,
+             glf_fechanulla, 2, glf_fechanulla, 'RU012', 1, ' ', 0, 1, 0, 0,
+             '/0/0/', lcur_main_rec.tip_tension, glf_fechanulla, 'CY001', 1,
+             'DF000');
+        else
+        
+          insert into hapmedida_ap
+            (usuario, f_actual, programa, nis_rad, num_apa, co_marca,
+             est_apa, nif_sum, cgv_sum, nif_apa, tip_apa, co_prop_apa,
+             aol_apa, amperios, tip_fase, tip_tension, coef_per, f_lvto,
+             f_inst, cte_apa, f_fabric, f_urevis, ind_precin, f_precin,
+             tip_per_lect, sec_pm, regulador, dimen_conex, sec_apa, frena,
+             svorkov, num_precin, apa_id, f_ppm, co_accuracy, installed_by,
+             defect)
+          values
+            (gls_usuario, trunc(sysdate), gls_programa,
+             lcur_main_rec.nis_rad, lcur_main_rec.num_apa,
+             lcur_main_rec.co_marca, lcur_main_rec.est_apa,
+             lcur_main_rec.nif, ' ', lcur_main_rec.nif,
+             lcur_main_rec.tip_apa, lcur_main_rec.co_prop_apa, 10, ls_num_id,
+             lcur_main_rec.tip_fase, lcur_main_rec.tip_tension, 0,
+             lcur_main_rec.f_lvto, lcur_main_rec.f_inst, 1,
+             lcur_main_rec.f_fabric, glf_fechanulla, 2, glf_fechanulla,
+             'RU012', 1, ' ', 0, 1, 0, 0, '/0/0/', lcur_main_rec.tip_tension,
+             glf_fechanulla, 'CY001', 1, 'DF000');
+        
+        end if;
       
         /*for params in 1..3 loop
           if lcur_main_rec.tip_apa in ('TA101', 'TA100') then
@@ -1345,25 +1469,45 @@ create or replace package body conversion_pck is
                                lcur_main_rec.co_marca);
       end;
     end loop;
-  end p05_metering;
+    /*  HAPARATOS INSERT HERE     --- --- --- */
+    insert into haparatos
+      (usuario, f_actual, programa, num_apa, co_marca, f_cambio, est_apa,
+       cod_almacen, num_lote, nis_rad, nif_apa, sec_pm, num_precin, tip_apa,
+       co_modelo, error, co_condition, defect, lect, num_os, cod_emp)
+      select usuario, f_actual, programa, num_apa, co_marca, trunc(sysdate),
+             est_apa, cod_almacen, num_lote, nis_rad, nif_apa, sec_pm,
+             num_precin, tip_apa, co_modelo, error, co_condition, defect,
+             lect, num_os, cod_emp
+        from aparatos a
+       where not exists (select 0
+                from haparatos
+               where num_apa = a.num_apa
+                 and co_marca = a.co_marca);
+  
+  end p05_apmedida_ap;
 
-  procedure p06_readings is
-    /*%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  procedure p06_readings_galatee is
+    /** 
      * TML - 2013-09-20
      * Readings Module   
+     * Run p20_billing_galatee first before running this one.
      *  
      *%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     */
     cursor lcur_readings is
       select /*+ parallel=8 */
-       sp.nis_rad, sp.sec_nis, ev.point, dateevt, periode, codeevt, indexevt,
-       conso, matricule, mt.f_inst, mt.num_apa, co_marca, sp.centre,
-       sp.client, tip_apa, sp.f_alta, ev.compteur
-        from edmgalatee.evenement ev, int_meter mt, int_supply sp
+       sp.nis_rad, sp.sec_nis, ev.point, en.dfac as dateevt, ev.periode,
+       codeevt, indexevt, conso, matricule, mt.f_inst, mt.num_apa, co_marca,
+       sp.centre, sp.client, tip_apa, sp.f_alta, ev.compteur
+        from edmgalatee.evenement ev, int_meter mt, int_supply sp,
+             edmgalatee.centfac en
        where ev.centre = sp.centre
          and ev.ag = sp.client
          and mt.centre = sp.centre
          and mt.client = sp.client
+         and mt.centre = en.centre
+         and mt.client = en.client
+         and ev.periode = en.periode
          and ev.compteur in (select compteur
                                from edmgalatee.canalisation
                               where centre = sp.centre
@@ -1373,7 +1517,8 @@ create or replace package body conversion_pck is
          and ev.dateevt > add_months(sysdate, -24)
          and not exists
        (select 0 from apmedida_co where nis_rad = sp.nis_rad)
-       order by sp.nis_rad, periode;
+         and dfac in
+             (select f_fact from recibos where nis_rad = sp.nis_rad);
     ll_cte      number;
     ll_commit   number;
     ll_num_rue  number;
@@ -1393,7 +1538,7 @@ create or replace package body conversion_pck is
          where ag = lcur_readings_rec.client
            and centre = lcur_readings_rec.centre
            and point = lcur_readings_rec.point;
-        /* and c.datepose =
+        /*{%skip} and c.datepose =
         (select max(datepose)
            from edmgalatee.canalisation c
           where ag = lcur_readings_rec.client
@@ -1486,10 +1631,151 @@ create or replace package body conversion_pck is
     
     end loop;
   
+    commit;
+    p06_readings_cleanup;
+  end p06_readings_galatee;
+  /**
+   * 
+   *
+  */
+  procedure p06_readings_access is
+  
+    cursor lcur_readings is
+      select sp.nis_rad, sp.sec_nis, mes_ano dateevt, leitura indexevt,
+             kwh conso, mt.f_inst, mt.num_apa, co_marca, sp.centre,
+             sp.client, tip_apa, sp.f_alta, fc.contador, fc.kwhrea
+        from edmaccess.facturacao fc, int_meter mt, int_supply sp
+       where mt.centre = sp.centre
+         and mt.client = sp.client
+         and to_char(fc.zona) = mt.centre
+         and to_char(fc.instalacao) = mt.client
+         and mes_ano > add_months(sysdate, -24)
+         and not exists
+       (select 0 from apmedida_co where nis_rad = sp.nis_rad)
+         and exists
+       (select * from apmedida_ap where nis_rad = sp.nis_rad)
+       order by sp.nis_rad, fc.mes_ano desc;
+    ll_cte      number;
+    ll_commit   number;
+    ll_num_rue  number;
+    ll_nis_rad  number;
+    ls_tip_csmo varchar2(5);
+    ls_tip_lect varchar2(5);
+  begin
+    ll_commit  := 0;
+    ll_nis_rad := 0;
+  
+    for lcur_readings_rec in lcur_readings loop
+    
+      begin
+        select c.multiplicador, 5
+          into ll_cte, ll_num_rue
+          from edmaccess.contador c
+         where to_char(c.zona) = lcur_readings_rec.centre
+           and to_char(c.no_da_instalacao) = lcur_readings_rec.client;
+      exception
+        when no_data_found then
+          ll_cte     := 1;
+          ll_num_rue := 5;
+        when too_many_rows then
+          ll_cte     := 1;
+          ll_num_rue := 5;
+      end;
+    
+      if ll_cte = 0 then
+        ll_cte := 1;
+      end if;
+    
+      if ll_num_rue > 8 then
+        ll_num_rue := 8;
+      end if;
+    
+      ls_tip_lect := 'RA005';
+    
+      /*{%skip}if lcur_readings_rec.point = 1 and
+         lcur_readings_rec.tip_apa = 'TA101' then
+        ls_tip_csmo := 'CO111';
+      elsif lcur_readings_rec.point = 1 and
+            lcur_readings_rec.tip_apa <> 'TA101' then
+        ls_tip_csmo := 'CO111';
+      elsif lcur_readings_rec.point = 2 and
+            lcur_readings_rec.tip_apa <> 'TA101' then
+        ls_tip_csmo := 'CO331';
+      elsif lcur_readings_rec.point = 3 and
+            lcur_readings_rec.tip_apa <> 'TA101' then
+        ls_tip_csmo := 'CO551';
+      end if;*/
+    
+      ls_tip_csmo := 'CO111';
+    
+      ll_num_rue := nvl(ll_num_rue, 5);
+    
+      if ll_nis_rad <> lcur_readings_rec.nis_rad or ls_tip_csmo <> 'CO111' then
+        begin
+          insert into apmedida_param
+            (usuario, f_actual, programa, num_apa, co_marca, f_val,
+             tip_csmo, coef_per, cte_prim, cte_secund, peso_entr, peso_sal,
+             num_rue)
+          values
+            (gls_usuario, trunc(sysdate), gls_programa,
+             lcur_readings_rec.num_apa, lcur_readings_rec.co_marca,
+             nvl(lcur_readings_rec.f_inst, lcur_readings_rec.f_alta),
+             ls_tip_csmo, 0, ll_cte, 1, 0, 0, ll_num_rue);
+        exception
+          when dup_val_on_index then
+            null;
+        end;
+      end if;
+    
+      begin
+        insert into apmedida_co
+          (usuario, f_actual, programa, nis_rad, num_apa, co_marca,
+           tip_csmo, lect, f_lect, csmo, cte, tip_lect, f_fact, dif_lect,
+           sec_rec, num_rue, sec_lect, lect_ant, f_trat, co_al, cod_emp,
+           time_lect)
+        values
+          (gls_usuario, trunc(sysdate), gls_programa,
+           lcur_readings_rec.nis_rad, lcur_readings_rec.num_apa,
+           lcur_readings_rec.co_marca, ls_tip_csmo,
+           lcur_readings_rec.indexevt, lcur_readings_rec.dateevt,
+           lcur_readings_rec.conso, ll_cte, ls_tip_lect,
+           lcur_readings_rec.dateevt,
+           round(lcur_readings_rec.conso / ll_cte), 0, ll_num_rue, 0, 0,
+           lcur_readings_rec.dateevt, 'AN000', 0, 0);
+      
+        if ll_nis_rad <> lcur_readings_rec.nis_rad then
+          ll_commit := ll_commit + 1;
+        end if;
+      
+        if mod(ll_commit, 1000) = 0 then
+          commit;
+        end if;
+      
+        ll_nis_rad := lcur_readings_rec.nis_rad;
+      
+      exception
+        when dup_val_on_index then
+          null;
+        when others then
+          dbms_output.put_line(sqlerrm || ':' || lcur_readings_rec.nis_rad);
+      end;
+    
+    end loop;
+    commit;
+    p06_readings_cleanup;
+  end p06_readings_access;
+
+  procedure p06_readings_cleanup is
+    /**
+     * TML - 2013-09-20
+     * Readings Module   
+     *  
+     *
+    */
+  begin
     update apmedida_co co
        set tip_lect = 'RA003'
-     where programa = 'CONV_EDM'
-       and (nis_rad, f_fact, tip_csmo) in
+     where (nis_rad, f_fact, tip_csmo) in
            (select nis_rad, min(f_fact), tip_csmo
               from apmedida_co
              where nis_rad = co.nis_rad
@@ -1518,8 +1804,59 @@ create or replace package body conversion_pck is
       end loop;
     end;
   
+    declare
+      cursor ix is
+        select nis_rad, num_apa, co_marca, num_rue,
+               max(length(lect)) new_num_rue
+          from apmedida_co
+         where nis_rad in
+               (select nis_rad from apmedida_co where num_rue < length(lect))
+         group by nis_rad, num_apa, co_marca, num_rue;
+    begin
+      for x in ix loop
+        if x.num_rue < 4 then
+          x.num_rue := 4;
+        end if;
+      
+        update apmedida_co
+           set num_rue = x.new_num_rue
+         where nis_rad = x.nis_rad
+           and num_apa = x.num_apa
+           and co_marca = x.co_marca;
+      end loop;
+    
+      for k in (select nis_rad, num_apa, co_marca, max(num_rue) num_rue
+                  from apmedida_co co
+                 where exists (select num_rue
+                          from apmedida_co
+                         where num_apa = co.num_apa
+                           and co_marca = co.co_marca
+                           and num_rue <> co.num_rue)
+                 group by nis_rad, num_apa, co_marca) loop
+      
+        update apmedida_co
+           set num_rue = k.num_rue
+         where nis_rad = k.nis_rad
+           and num_apa = k.num_apa
+           and co_marca = k.co_marca;
+      
+      end loop;
+    
+      for p in (select distinct pa.rowid, co.nis_rad, co.num_apa, co.co_marca,
+                                co.num_rue
+                  from apmedida_co co, apmedida_param pa
+                 where co.num_apa = pa.num_apa
+                   and co.co_marca = pa.co_marca
+                   and co.num_rue <> pa.num_rue) loop
+      
+        update apmedida_param
+           set num_rue = p.num_rue
+         where rowid = p.rowid;
+      
+      end loop;
+    end;
     commit;
-  end p06_readings;
+  end p06_readings_cleanup;
 
   procedure p07_reading_routes is
     /*
@@ -1537,7 +1874,7 @@ create or replace package body conversion_pck is
              (select centre, client
                 from int_supply
                where nis_rad is not null)
-         and cod_unicom <> 1026
+      --and cod_unicom <> 1026
        group by tournee, a.centre, cod_unicom;
   
     cursor lcur_order(cls_tournee in varchar2, cls_centre in varchar2) is
@@ -1644,246 +1981,134 @@ create or replace package body conversion_pck is
       
         ll_aol_fin := ll_aol_fin + 1;
       
-        insert into fincas_per_lect
-          (usuario, f_actual, programa, nif, cod_unicom, ruta, num_itin,
-           aol_fin, tip_per_lect, f_ureubi, cod_mask)
-        values
-          (gls_usuario, trunc(sysdate), gls_programa, lcur_order_rec.nif,
-           lcur_order_rec.cod_unicom, ll_ruta, ll_mitin, ll_aol_fin, 'RU012',
-           lcur_order_rec.f_alta, lcur_order_rec.cod_mask);
+        begin
+        
+          insert into fincas_per_lect
+            (usuario, f_actual, programa, nif, cod_unicom, ruta, num_itin,
+             aol_fin, tip_per_lect, f_ureubi, cod_mask)
+          values
+            (gls_usuario, trunc(sysdate), gls_programa, lcur_order_rec.nif,
+             lcur_order_rec.cod_unicom, ll_ruta, ll_mitin, ll_aol_fin,
+             'RU012', lcur_order_rec.f_alta, lcur_order_rec.cod_mask);
+        
+        exception
+          when others then
+            dbms_output.put_line(sqlerrm || ' -> ' ||
+                                 lcur_order_rec.nis_rad || '  -> ' ||
+                                 ll_aol_fin);
+        end;
       
       end loop;
     
     end loop;
   end p07_reading_routes;
 
-  procedure unpaid_bill_concepts(pll_nis_rad in number, plf_fact in date,
-                                 pll_imp_tot_rec in number);
-
-  procedure p20_billing(pll_nis_rad in number default 0) is
-    /*
-    &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-    &&
-    &&
-    &&
-    &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-    */
-    cursor lcur_accounts is
-      select *
-        from int_supply s
-       where nis_rad is not null
-         and (nis_rad = pll_nis_rad or 0 = pll_nis_rad)
+  /**
+  * Procedure to load Galatee historical readings to CMS. The tables to be loaded by this procedure are;
+  * <li>RECIBOS</li>
+  * <li>HFACTURACION</li>
+  * <li>IMP_CONCEPTO</li>
+  * <li>EST_REC</li> 
+  * A historical load of past 24 months bills will be loaded to these tables. If any customer has a bill older
+  * than the bills for the 24 months then a 25th month bill will be created with a consolidated sum of all the
+  * 25+ months bills. <br/>
+  * <b><u>Rules Used</u></b>
+  * <ul>Historical bills of 24 months will be converted with status either paid or sent to customer.</ul>
+  * <ul>If bill is not fully paid (partially paid or no payment at all) then it will have status 
+  * "SENT TO CUSTOMER" and the paid amount will reflect
+  * in <i>RECIBOS</i> as such.</ul>
+  * <ul>Fully paid bills will have status "PAID" and the bill amount will be equal to amount paid.</ul>
+  * @author     tmlangeni@eservicios.indracompany.com
+  * @param     pll_nis_rad IN NUMBER DEFAULT 0 - Can be specified if we have a particular 
+  *                          service to convert its bills but left blank for all services.             
+  */
+  procedure p20_billing_galatee(pll_nis_rad in number default 0) is
+  
+    cursor lcur_bill is
+      select /*+ parallel=16 */
+       en.facture, en.dfac,
+       nvl(lag(dfac, 1) over(order by sp.nis_rad, dfac),
+            to_date(29991231, 'yyyymmdd')) dfac_prev, sp.nis_rad, sp.sec_nis,
+       sp.cod_tar, sp.cod_unicom_serv as cod_unicom, en.totfttc bill_amount,
+       en.totftax bill_tax, gr_concepto, cod_mask, tip_cli, sec_cta, cod_cli,
+       nvl(max((select sum(montant)
+                  from edmgalatee.lclient
+                 where centre = sp.centre
+                   and client = sp.client
+                   and ordre = sp.ordre
+                   and ndoc = en.facture
+                   and dc = 'C'
+                   and coper not in ('078', '080'))), 0) paid,
+       sum(case
+             when redevance in ('01', '02', '03', '04') then
+              redht
+             else
+              0
+           end) energy,
+       sum(case
+             when redevance in ('11', '12', '18', '17') then
+              redht
+             else
+              0
+           end) fixed_charge,
+       sum(case
+             when redevance in ('14') then
+              redht
+             else
+              0
+           end) radio,
+       sum(case
+             when redevance in ('15') then
+              redht
+             else
+              0
+           end) garbage_charge,
+       sum(case
+             when redevance in ('08') then
+              redht
+             else
+              0
+           end) loses,
+       sum(case
+             when redevance in ('06', '13') then
+              redht
+             else
+              0
+           end) potencia
+        from int_supply sp, edmgalatee.centfac en, edmgalatee.credfac re
+       where sp.centre = en.centre
+         and sp.centre = re.centre
+         and sp.client = en.client
+         and sp.client = re.client
+         and en.facture = re.facture
+         and sp.nis_rad is not null
+         and en.coper = '001'
+         and dfac is not null
          and not exists
-       (select 0 from recibos where nis_rad = s.nis_rad);
-  
-    lf_fact        date;
-    ll_imp_tot_rec number;
-    ls_est_act     varchar2(5);
-  begin
-    for lcur_accounts_rec in lcur_accounts loop
-    
-      if lcur_accounts_rec.centre = '999' then
-        ll_imp_tot_rec := 0;
-        lf_fact        := trunc(sysdate);
-      else
-      
-        select nvl(sum(decode(dc, 'D', montant, -montant)), 0)
-          into ll_imp_tot_rec
-          from edmgalatee.lclient l, int_supply s
-         where l.centre = s.centre
-           and l.client = s.client
-           and l.ordre = s.ordre
-           and s.nis_rad = lcur_accounts_rec.nis_rad;
-      
-        select nvl(max(f_fact), trunc(sysdate))
-          into lf_fact
-          from apmedida_co
-         where nis_rad = lcur_accounts_rec.nis_rad;
-      
-      end if;
-    
-      /*select nvl(max(dfac), trunc(sysdate))
-       into lf_fact
-       from edmgalatee.entfac
-      where centre = lcur_accounts_rec.centre
-        and client = lcur_accounts_rec.client
-        and ordre = lcur_accounts_rec.ordre;*/
-    
-      if ll_imp_tot_rec > 0 then
-        ls_est_act := 'ER020';
-      elsif ll_imp_tot_rec < 0 then
-        ll_imp_tot_rec := 0;
-        ls_est_act     := 'ER310';
-      else
-        ls_est_act := 'ER310';
-      end if;
-    
-      insert into recibos
-        (usuario, f_actual, programa, sec_rec, nis_rad, sec_nis, f_fact,
-         imp_tot_rec, est_act, f_est_act, cod_cli, sec_cta, op_cambest,
-         f_p_camb_est, num_meses_fact, num_fact, num_fact_anul, sec_mod,
-         sec_rec_anul, f_fact_anul, num_plza_abon, imp_cta, tip_cli, tip_cta,
-         num_acu, cod_unicom, f_prev_corte, f_vcto_fac, ind_recar, ind_multa,
-         num_dias_rec, aj_redon, cod_tar, gr_concepto, f_fact_ant,
-         nro_factura, f_cobro, ind_cuota, ind_conversion, f_vcto_prox_fac,
-         ind_ajuste, tip_fact, f_proc_cobro, ind_impuesto, cod_agencia,
-         cod_sucursal, tip_cencobro, sec_remesa, tip_rec, co_cond_fiscal,
-         ind_real_est, f_puesta_cobro, ind_gestion_cuenta, simbolo_var,
-         num_ident_sipo, num_fiscal, periodo_contable, prioridad, ind_ref,
-         f_fact_regul, sec_rec_regul, correo_entrega, distrito_entrega,
-         num_id_sipo, sie_simbolo_var, sec_est_act, cod_ref, cod_mask,
-         imp_charges, imp_amort, f_last_recargo, f_last_multa, ind_incl_gs,
-         shift_camb_est, cod_cli_trn, sec_cta_trn, num_cnto, cod_ministry,
-         ind_included, nir_included)
-      values
-        (gls_usuario, trunc(sysdate), gls_programa, 1,
-         lcur_accounts_rec.nis_rad, lcur_accounts_rec.sec_nis, lf_fact,
-         ll_imp_tot_rec, ls_est_act, trunc(sysdate),
-         lcur_accounts_rec.cod_cli, lcur_accounts_rec.sec_cta, ' ',
-         glf_fechanulla, 0, ' ', 0, 0, 0, glf_fechanulla, 0, 0 /*imp_cta*/,
-         lcur_accounts_rec.tip_cli, 'CU001', 0, lcur_accounts_rec.cod_unicom,
-         decode(ll_imp_tot_rec, 0, glf_fechanulla, trunc(sysdate)),
-         lf_fact + 14, 2, 2, 0, 0, lcur_accounts_rec.cod_tar,
-         lcur_accounts_rec.gr_concepto, glf_fechanulla, 0,
-         decode(ll_imp_tot_rec, 0, glf_fechanulla, trunc(sysdate)), 2, 1,
-         glf_fechanulla, 0, 'FT011',
-         decode(ll_imp_tot_rec, 0, glf_fechanulla, trunc(sysdate)), 2, 1,
-         lcur_accounts_rec.cod_unicom, 'CC001', 0, 'TR110', 'FC540', 1,
-         trunc(sysdate), 2, ' ', ' ', ' ', glf_fechanulla, 9999, 2,
-         glf_fechanulla, 0, 0, 0, 0, glf_fechanulla, 1, 0,
-         lcur_accounts_rec.cod_mask, ll_imp_tot_rec, 0, glf_fechanulla,
-         glf_fechanulla, 0, 0, 0, 0, 0, 'IT000', 2, ' ');
-    
-      insert into hfacturacion
-        (usuario, f_actual, programa, sec_rec, nis_rad, sec_nis, f_fact,
-         csmo_fact, pot_fact, imp_fact, f_fact_sust, ind_rest, ind_val_fact,
-         tip_fact, imp_cv, num_cv_fact, mod_estm, sec_rec_sust, csmo_react,
-         pot_leida, cont_trans_pot_ant, f_prox_vto, csmo_fact_punta,
-         csmo_fact_valle, csmo_fact_llano, pot_fact_punta, pot_fact_valle,
-         pot_fact_llano, pot_leida_punta, pot_leida_valle, pot_leida_llano,
-         ind_f_lect_control, ind_f_lvnto, imp_anticipos, num_anticipos_fact,
-         f_lect, f_lect_ant, imp_iva_antic, tip_cta, tip_rec, imp_charges,
-         period, period_tip_per_fact)
-      values
-        (gls_usuario, trunc(sysdate), gls_programa, 1,
-         lcur_accounts_rec.nis_rad, lcur_accounts_rec.sec_nis, lf_fact, 0, 0,
-         ll_imp_tot_rec, glf_fechanulla, 1, 1, 'FT011', 0, 0, 0, 0, 0, 0, 0,
-         glf_fechanulla, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 0, 0, lf_fact,
-         glf_fechanulla, 0, 'CU001', 'TR110', ll_imp_tot_rec,
-         to_char(sysdate, 'yyyymm'), 'PF012');
-    
-      insert into est_rec
-        (usuario, f_actual, programa, sec_rec, nis_rad, sec_nis, f_fact,
-         sec_est_rec, est_rec, f_inc_est, desc_est_rec)
-      values
-        (gls_usuario, trunc(sysdate), gls_programa, 1,
-         lcur_accounts_rec.nis_rad, lcur_accounts_rec.sec_nis, lf_fact, 1,
-         ls_est_act, trunc(sysdate), ' ');
-    
-      if ll_imp_tot_rec > 0 then
-        unpaid_bill_concepts(lcur_accounts_rec.nis_rad, lf_fact,
-                             ll_imp_tot_rec);
-      else
-        insert into imp_concepto
-          (usuario, f_actual, programa, sec_rec, nis_rad, sec_nis, f_fact,
-           co_concepto, sec_concepto, csmo_fact, prec_concepto, imp_concepto,
-           porc_concepto, base_calc_imp, ind_diff, imp_iva, ind_pago,
-           desc_pago, imp_cta_cto, nir_srv, nir_asoc, imp_used, ind_arrear)
-        values
-          (gls_usuario, trunc(sysdate), gls_programa, 1,
-           lcur_accounts_rec.nis_rad, lcur_accounts_rec.sec_nis, lf_fact,
-           'CC261', 1, 0, 0, 0, 0, 0, 0, 0, 1, ' ', 0, ' ', ' ', 0, 0);
-      end if;
-    
-    end loop;
-  
-    /*  Updates for COD_REF */
-    begin
-      --update sumcon set sec_factura = 1 where sec_factura = 0;
-    
-      begin
-        for x in (select s.nis_rad || lpad(s.sec_factura, 3, '0') as cod_ref,
-                         nis_rad
-                    from sumcon s) loop
-          update recibos
-             set cod_ref = x.cod_ref, simbolo_var = x.cod_ref
-           where nis_rad = x.nis_rad;
-        end loop;
-      end;
-    
-      update recibos
-         set cod_ref = to_char(cod_ref) ||
-                        substr(to_char(11 -
-                                       mod(((to_number(substr(to_char(cod_ref),
-                                                              1, 1)) * 2) +
-                                           (to_number(substr(to_char(cod_ref),
-                                                              2, 1)) * 3) +
-                                           (to_number(substr(to_char(cod_ref),
-                                                              3, 1)) * 4) +
-                                           (to_number(substr(to_char(cod_ref),
-                                                              4, 1)) * 5) +
-                                           (to_number(substr(to_char(cod_ref),
-                                                              5, 1)) * 6) +
-                                           (to_number(substr(to_char(cod_ref),
-                                                              6, 1)) * 7) +
-                                           (to_number(substr(to_char(cod_ref),
-                                                              7, 1)) * 2) +
-                                           (to_number(substr(to_char(cod_ref),
-                                                              8, 1)) * 3) +
-                                           (to_number(substr(to_char(cod_ref),
-                                                              9, 1)) * 4) +
-                                           (to_number(substr(to_char(cod_ref),
-                                                              10, 1)) * 5) +
-                                           (to_number(substr(to_char(cod_ref),
-                                                              11, 1)) * 6) +
-                                           (to_number(substr(to_char(cod_ref),
-                                                              12, 1)) * 7)), 11)),
-                               -1)
-       where ind_conversion = 1;
-    end;
-    commit;
-  end p20_billing;
-
-  procedure unpaid_bill_concepts(pll_nis_rad in number, plf_fact in date,
-                                 pll_imp_tot_rec in number) is
-    cursor lcur_main is
-      select * from int_supply where nis_rad = pll_nis_rad;
-  
-    cursor lcur_concepts is
-      select aa.*,
-             billed - (fixed_charge + radio + garbage + energy + tax) extra
-        from (select sum(decode(dc, 'D', montant, -montant)) as amount,
-                      sum(decode(dc, 'D', montant)) as billed,
-                      nvl(sum(decode(dc, 'C', montant)), 0) as paid,
-                      max((select nvl(sum(totredht), 0)
-                             from edmgalatee.redfac
-                            where facture = l.ndoc
-                              and client = l.client
-                              and redevance in ('11', '12'))) as fixed_charge,
-                      max((select nvl(sum(totredht), 0)
-                             from edmgalatee.redfac
-                            where facture = l.ndoc
-                              and client = l.client
-                              and redevance in ('14'))) as radio,
-                      max((select nvl(sum(totredht), 0)
-                             from edmgalatee.redfac
-                            where facture = l.ndoc
-                              and client = l.client
-                              and redevance in ('15'))) as garbage,
-                      max((select nvl(sum(totredht), 0)
-                             from edmgalatee.redfac
-                            where facture = l.ndoc
-                              and client = l.client
-                              and redevance in ('01', '02', '03'))) as energy,
-                      nvl(max(e.totftax), 0) tax
-                 from edmgalatee.lclient l, int_supply s, edmgalatee.entfac e
-                where l.centre = s.centre
-                  and l.client = s.client
-                  and l.ordre = s.ordre
-                  and s.nis_rad is not null
-                  and e.facture = ndoc
-                  and e.client = l.client
-                  and s.nis_rad = pll_nis_rad) aa;
+       (select 0 from recibos where nis_rad = sp.nis_rad)
+         and (sp.nis_rad = pll_nis_rad or 0 = pll_nis_rad)
+      --and sp.client = '0200029'
+       group by en.facture, sp.nis_rad, sp.sec_nis, sp.cod_tar,
+                sp.cod_unicom_serv, cod_mask, en.totfttc, en.totftax,
+                en.dfac, gr_concepto, sec_cta, tip_cli, cod_cli
+       order by nis_rad, dfac;
+    lf_proc_cobro       date;
+    lf_previous_date    date;
+    lf_fact             date;
+    lf_fact_p           date;
+    ll_commit           number;
+    ll_cod_ref          number;
+    ll_excess           number;
+    ll_factura          number;
+    ll_advance          number;
+    ll_imp_cta          number;
+    ll_sec_rec          number;
+    ll_cnis_rad         number;
+    ll_imp_tot_rec      number;
+    ll_nis_rad_p        number;
+    ll_sec_nis_p        number;
+    ls_tip_rec          varchar2(5);
+    ls_est_act          varchar2(5);
     ll_paid             number := 0;
     ll_payconc          number := 0;
     ll_sec_concepto     number := 0;
@@ -1891,75 +2116,304 @@ create or replace package body conversion_pck is
     ll_tot_imp_concepto number := 0;
     ls_co_concepto      varchar2(5) := ' ';
   begin
-    for lcur_main_rec in lcur_main loop
-      for lcur_concepts_rec in lcur_concepts loop
+    ll_commit    := 0;
+    ll_cnis_rad  := 0;
+    ll_sec_nis_p := 1;
+    ll_nis_rad_p := 1;
+    lf_fact_p    := trunc(sysdate);
+    select run_id.nextval into gll_run_id from dual;
+  
+    for lcur_bill_rec in lcur_bill loop
+      begin
       
-        ll_payconc := lcur_concepts_rec.paid;
+        lf_fact        := lcur_bill_rec.dfac;
+        ls_tip_rec     := 'TR110';
+        ll_excess      := 1;
+        ll_imp_cta     := lcur_bill_rec.paid;
+        ll_imp_tot_rec := lcur_bill_rec.bill_amount;
       
-        for i in 1 .. 5 loop
-          ll_sec_concepto := ll_sec_concepto + 1;
+        if lcur_bill_rec.bill_amount - lcur_bill_rec.paid > 0 then
+          ls_est_act := 'ER020';
+        elsif lcur_bill_rec.bill_amount - lcur_bill_rec.paid < 0 then
+          ll_excess  := 2;
+          ls_est_act := 'ER310';
+          ll_imp_cta := lcur_bill_rec.bill_amount;
+          ll_advance := lcur_bill_rec.bill_amount - lcur_bill_rec.paid;
+        else
+          ls_est_act := 'ER310';
+        end if;
+      
+        for ll_credit in 1 .. ll_excess loop
         
-          if i = 1 then
-            ls_co_concepto  := 'CC503';
-            ll_imp_concepto := lcur_concepts_rec.tax;
-          elsif i = 2 then
-            ls_co_concepto  := 'CC120';
-            ll_imp_concepto := lcur_concepts_rec.radio;
-          elsif i = 3 then
-            ls_co_concepto  := 'CC100';
-            ll_imp_concepto := lcur_concepts_rec.fixed_charge;
-          elsif i = 4 then
-            ls_co_concepto  := 'CC130';
-            ll_imp_concepto := lcur_concepts_rec.garbage;
-          elsif i = 5 then
-            ls_co_concepto  := 'CC261';
-            ll_imp_concepto := lcur_concepts_rec.energy +
-                               lcur_concepts_rec.extra;
+          if ll_credit = 2 then
+            ls_tip_rec     := 'TR502';
+            ll_imp_cta     := lcur_bill_rec.paid -
+                              lcur_bill_rec.bill_amount;
+            ll_imp_tot_rec := lcur_bill_rec.paid -
+                              lcur_bill_rec.bill_amount;
+          end if;
+        
+          update sumcon
+             set sec_factura = sec_factura + 1
+           where nis_rad = lcur_bill_rec.nis_rad
+          returning sec_factura into ll_factura;
+        
+          ll_cod_ref := lcur_bill_rec.nis_rad || lpad(ll_factura, 3, '0');
+        
+          --lf_proc_cobro := ;
+        
+          if ls_est_act = 'ER310' then
+            select nvl(max(denr), trunc(sysdate))
+              into lf_proc_cobro
+              from edmgalatee.lclient
+             where ndoc = lcur_bill_rec.facture
+               and (centre, client, ordre) =
+                   (select centre, client, ordre
+                      from int_supply
+                     where nis_rad = lcur_bill_rec.nis_rad);
+          else
+            lf_proc_cobro := glf_fechanulla;
+          end if;
+        
+          /*select count(*) + 1
+           into ll_sec_rec
+           from recibos
+          where nis_rad = lcur_bill_rec.nis_rad
+            and sec_nis = lcur_bill_rec.sec_nis
+            and f_fact = lf_fact;*/
+        
+          if lcur_bill_rec.nis_rad = ll_nis_rad_p and
+             lcur_bill_rec.sec_nis = ll_sec_nis_p and lf_fact = lf_fact_p then
+            ll_sec_rec := ll_sec_rec + 1;
+          else
+            ll_sec_rec := 1;
+          end if;
+        
+          insert into recibos
+            (usuario, f_actual, programa, sec_rec, nis_rad, sec_nis, f_fact,
+             imp_tot_rec, est_act, f_est_act, cod_cli, sec_cta, op_cambest,
+             f_p_camb_est, num_meses_fact, num_fact, num_fact_anul, sec_mod,
+             sec_rec_anul, f_fact_anul, num_plza_abon, imp_cta, tip_cli,
+             tip_cta, num_acu, cod_unicom, f_prev_corte, f_vcto_fac,
+             ind_recar, ind_multa, num_dias_rec, aj_redon, cod_tar,
+             gr_concepto, f_fact_ant, nro_factura, f_cobro, ind_cuota,
+             ind_conversion, f_vcto_prox_fac, ind_ajuste, tip_fact,
+             f_proc_cobro, ind_impuesto, cod_agencia, cod_sucursal,
+             tip_cencobro, sec_remesa, tip_rec, co_cond_fiscal, ind_real_est,
+             f_puesta_cobro, ind_gestion_cuenta, simbolo_var, num_ident_sipo,
+             num_fiscal, periodo_contable, prioridad, ind_ref, f_fact_regul,
+             sec_rec_regul, correo_entrega, distrito_entrega, num_id_sipo,
+             sie_simbolo_var, sec_est_act, cod_ref, cod_mask, imp_charges,
+             imp_amort, f_last_recargo, f_last_multa, ind_incl_gs,
+             shift_camb_est, cod_cli_trn, sec_cta_trn, num_cnto,
+             cod_ministry, ind_included, nir_included)
+          values
+            (gls_usuario, trunc(sysdate), gls_programa, ll_sec_rec,
+             lcur_bill_rec.nis_rad, lcur_bill_rec.sec_nis, lf_fact,
+             ll_imp_tot_rec, ls_est_act, trunc(sysdate),
+             lcur_bill_rec.cod_cli, lcur_bill_rec.sec_cta, ' ',
+             glf_fechanulla, 0, lcur_bill_rec.facture, 0, 0, 0,
+             glf_fechanulla, 0, ll_imp_cta, lcur_bill_rec.tip_cli, 'CU001',
+             0, lcur_bill_rec.cod_unicom,
+             decode(ll_imp_tot_rec, 0, glf_fechanulla, trunc(sysdate)),
+             lf_fact + 14, 2, 2, 0, 0, lcur_bill_rec.cod_tar,
+             lcur_bill_rec.gr_concepto, glf_fechanulla, 0, lf_proc_cobro, 2,
+             1, glf_fechanulla, 0, 'FT011', lf_proc_cobro, 2, 1,
+             lcur_bill_rec.cod_unicom, 'CC001', 0, ls_tip_rec, 'FC540', 1,
+             trunc(sysdate), 2, ll_cod_ref, ' ', ' ', glf_fechanulla, 9999,
+             2, glf_fechanulla, 0, 0, 0, 0, glf_fechanulla, 1, ll_cod_ref,
+             lcur_bill_rec.cod_mask, ll_imp_tot_rec, 0, glf_fechanulla,
+             glf_fechanulla, 0, 0, 0, 0, 0, 'IT000', 2, ' ');
+        
+          lf_fact_p    := lf_fact;
+          ll_sec_nis_p := lcur_bill_rec.sec_nis;
+          ll_nis_rad_p := lcur_bill_rec.nis_rad;
+        
+          if ll_credit = 1 and ls_tip_rec in ('TR110') then
+          
+            lf_previous_date := lcur_bill_rec.dfac_prev;
+          
+            /*select nvl(max(f_fact), glf_fechanulla)
+             into lf_previous_date
+             from hfacturacion
+            where nis_rad = lcur_bill_rec.nis_rad
+            and sec_nis = lcur_bill_rec.sec_nis    ;*/
+          
+            insert into hfacturacion
+              (usuario, f_actual, programa, sec_rec, nis_rad, sec_nis,
+               f_fact, csmo_fact, pot_fact, imp_fact, f_fact_sust, ind_rest,
+               ind_val_fact, tip_fact, imp_cv, num_cv_fact, mod_estm,
+               sec_rec_sust, csmo_react, pot_leida, cont_trans_pot_ant,
+               f_prox_vto, csmo_fact_punta, csmo_fact_valle, csmo_fact_llano,
+               pot_fact_punta, pot_fact_valle, pot_fact_llano,
+               pot_leida_punta, pot_leida_valle, pot_leida_llano,
+               ind_f_lect_control, ind_f_lvnto, imp_anticipos,
+               num_anticipos_fact, f_lect, f_lect_ant, imp_iva_antic,
+               tip_cta, tip_rec, imp_charges, period, period_tip_per_fact)
+            values
+              (gls_usuario, trunc(sysdate), gls_programa, ll_sec_rec,
+               lcur_bill_rec.nis_rad, lcur_bill_rec.sec_nis, lf_fact, 0, 0,
+               ll_imp_tot_rec, glf_fechanulla, 1, 1, 'FT011', 0, 0, 0, 0, 0,
+               0, 0, glf_fechanulla, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 0, 0,
+               lf_fact, lf_previous_date, 0, 'CU001', 'TR110',
+               ll_imp_tot_rec, to_char(sysdate, 'yyyymm'), 'PF012');
+          end if;
+        
+          insert into est_rec
+            (usuario, f_actual, programa, sec_rec, nis_rad, sec_nis, f_fact,
+             sec_est_rec, est_rec, f_inc_est, desc_est_rec)
+          values
+            (gls_usuario, trunc(sysdate), gls_programa, ll_sec_rec,
+             lcur_bill_rec.nis_rad, lcur_bill_rec.sec_nis, lf_fact, 1,
+             ls_est_act,
+             decode(ls_est_act, 'ER020', lf_fact, trunc(sysdate)), ' ');
+        
+          if ll_credit = 2 then
+            ll_sec_concepto := 1;
+            ls_co_concepto  := 'VA502';
+            ll_paid         := ll_imp_tot_rec;
+            ll_imp_concepto := ll_imp_tot_rec;
+          
+            insert into imp_concepto
+              (usuario, f_actual, programa, sec_rec, nis_rad, sec_nis,
+               f_fact, co_concepto, sec_concepto, csmo_fact, prec_concepto,
+               imp_concepto, porc_concepto, base_calc_imp, ind_diff, imp_iva,
+               ind_pago, desc_pago, imp_cta_cto, nir_srv, nir_asoc, imp_used,
+               ind_arrear)
+            values
+              (gls_usuario, trunc(sysdate), gls_programa, ll_sec_rec,
+               lcur_bill_rec.nis_rad, lcur_bill_rec.sec_nis, lf_fact,
+               ls_co_concepto, ll_sec_concepto, 0, 0, ll_imp_concepto, 0,
+               ll_imp_concepto, 0, 0, 1, ' ', ll_paid, ' ', ' ', 0, 0);
+          
+            --end if;
+          
+            --end loop;
+            --Concepts
+          else
+            ll_payconc := lcur_bill_rec.paid;
+          
+            ll_sec_concepto := 0;
+          
+            for i in 1 .. 7 loop
+              ll_sec_concepto := ll_sec_concepto + 1;
+            
+              if i = 1 then
+                ls_co_concepto  := 'CC503';
+                ll_imp_concepto := lcur_bill_rec.bill_tax;
+              elsif i = 2 then
+                ls_co_concepto  := 'CC120';
+                ll_imp_concepto := lcur_bill_rec.radio;
+              elsif i = 3 then
+                ls_co_concepto  := 'CC100';
+                ll_imp_concepto := lcur_bill_rec.fixed_charge;
+              elsif i = 4 then
+                ls_co_concepto  := 'CC130';
+                ll_imp_concepto := lcur_bill_rec.garbage_charge;
+              elsif i = 5 then
+                ls_co_concepto  := 'CC261';
+                ll_imp_concepto := lcur_bill_rec.energy;
+              elsif i = 6 then
+                ls_co_concepto  := 'CC230';
+                ll_imp_concepto := lcur_bill_rec.loses;
+              elsif i = 7 then
+                ls_co_concepto  := 'CC360';
+                ll_imp_concepto := lcur_bill_rec.potencia;
+              end if;
+            
+              ll_tot_imp_concepto := ll_tot_imp_concepto + ll_imp_concepto;
+            
+              if ll_payconc > 0 then
+                if ll_payconc > ll_imp_concepto then
+                  ll_paid    := ll_imp_concepto;
+                  ll_payconc := ll_payconc - ll_imp_concepto;
+                else
+                  ll_paid    := ll_payconc;
+                  ll_payconc := 0;
+                end if;
+              else
+                ll_paid := 0;
+              end if;
+            
+              ll_imp_concepto := nvl(ll_imp_concepto, 0);
+            
+              if ll_imp_concepto <> 0 then
+                insert into imp_concepto
+                  (usuario, f_actual, programa, sec_rec, nis_rad, sec_nis,
+                   f_fact, co_concepto, sec_concepto, csmo_fact,
+                   prec_concepto, imp_concepto, porc_concepto, base_calc_imp,
+                   ind_diff, imp_iva, ind_pago, desc_pago, imp_cta_cto,
+                   nir_srv, nir_asoc, imp_used, ind_arrear)
+                values
+                  (gls_usuario, trunc(sysdate), gls_programa, ll_sec_rec,
+                   lcur_bill_rec.nis_rad, lcur_bill_rec.sec_nis, lf_fact,
+                   ls_co_concepto, ll_sec_concepto, 0, 0, ll_imp_concepto, 0,
+                   ll_imp_concepto, 0, 0, 1, ' ', ll_paid, ' ', ' ', 0, 0);
+              
+              end if;
+            
+            end loop;
           
           end if;
         
-          ll_tot_imp_concepto := ll_tot_imp_concepto + ll_imp_concepto;
-        
-          if ll_payconc > 0 then
-            if ll_payconc > ll_imp_concepto then
-              ll_paid    := ll_imp_concepto;
-              ll_payconc := ll_payconc - ll_imp_concepto;
-            else
-              ll_paid    := ll_payconc;
-              ll_payconc := 0;
-            end if;
-          else
-            ll_paid := 0;
-          end if;
-        
-          ll_imp_concepto := nvl(ll_imp_concepto, 0);
-        
-          insert into imp_concepto
-            (usuario, f_actual, programa, sec_rec, nis_rad, sec_nis, f_fact,
-             co_concepto, sec_concepto, csmo_fact, prec_concepto,
-             imp_concepto, porc_concepto, base_calc_imp, ind_diff, imp_iva,
-             ind_pago, desc_pago, imp_cta_cto, nir_srv, nir_asoc, imp_used,
-             ind_arrear)
-          values
-            (gls_usuario, trunc(sysdate), gls_programa, 1,
-             lcur_main_rec.nis_rad, lcur_main_rec.sec_nis, plf_fact,
-             ls_co_concepto, ll_sec_concepto, 0, 0, ll_imp_concepto, 0,
-             ll_imp_concepto, 0, 0, 1, ' ', ll_paid, ' ', ' ', 0, 0);
         end loop;
       
-        --Test if the amounts are matching
-        select sum(imp_concepto) - sum(e.imp_cta_cto)
-          into ll_imp_concepto
-          from imp_concepto e
-         where nis_rad = pll_nis_rad;
+        if ll_cnis_rad <> lcur_bill_rec.nis_rad then
+          ll_commit := ll_commit + 1;
+        
+          if mod(ll_commit, 1000) = 0 then
+            commit;
+          end if;
+        end if;
       
-      end loop;
-      if ll_imp_concepto <> pll_imp_tot_rec then
-        dbms_output.put_line('... Mismatch on amounts >>' ||
-                             lcur_main_rec.nis_rad);
-      end if;
+        ll_cnis_rad := lcur_bill_rec.nis_rad;
+      exception
+        when others then
+          error_logger(p_error_msg => sqlerrm || ' => ' ||
+                                      to_char(lcur_bill_rec.dfac, 'yyyymmdd'),
+                       p_run_id => gll_run_id, p_program_name => 'RECIBOS',
+                       p_tip_id => 'NIS',
+                       p_id_number => lcur_bill_rec.nis_rad);
+      end;
     end loop;
-  end unpaid_bill_concepts;
+    commit;
+  
+    --Cod_Ref Updates    
+    update recibos
+       set cod_ref = to_char(cod_ref) ||
+                      substr(to_char(11 -
+                                     mod(((to_number(substr(to_char(cod_ref),
+                                                            1, 1)) * 2) +
+                                         (to_number(substr(to_char(cod_ref),
+                                                            2, 1)) * 3) +
+                                         (to_number(substr(to_char(cod_ref),
+                                                            3, 1)) * 4) +
+                                         (to_number(substr(to_char(cod_ref),
+                                                            4, 1)) * 5) +
+                                         (to_number(substr(to_char(cod_ref),
+                                                            5, 1)) * 6) +
+                                         (to_number(substr(to_char(cod_ref),
+                                                            6, 1)) * 7) +
+                                         (to_number(substr(to_char(cod_ref),
+                                                            7, 1)) * 2) +
+                                         (to_number(substr(to_char(cod_ref),
+                                                            8, 1)) * 3) +
+                                         (to_number(substr(to_char(cod_ref),
+                                                            9, 1)) * 4) +
+                                         (to_number(substr(to_char(cod_ref),
+                                                            10, 1)) * 5) +
+                                         (to_number(substr(to_char(cod_ref),
+                                                            11, 1)) * 6) +
+                                         (to_number(substr(to_char(cod_ref),
+                                                            12, 1)) * 7)), 11)),
+                             -1);
+  
+    commit;
+  
+    begin
+      null;
+    end;
+  end p20_billing_galatee;
 
   procedure p30_deposits is
     cursor lcur_deposits is
@@ -1997,6 +2451,123 @@ create or replace package body conversion_pck is
          ' ', ' ', 'XM999', 'IT000');
     end loop;
   end p30_deposits;
+
+  procedure p40_conversion_clean_up is
+  begin
+    update sumcon set tip_per_lect = 'RU004' where cod_mask = 2048;
+  
+    update apmedida_ap
+       set tip_per_lect = 'RU004'
+     where nis_rad in (select nis_rad from sumcon where cod_mask = 2048);
+  
+    commit;
+  
+    declare
+      cursor ix is
+        select k.*, p.rowid
+          from (select r.nis_rad, max(r.f_fact) f_fact, max(f_lect) f_lect
+                   from recibos r, apmedida_co c
+                  where r.nis_rad = c.nis_rad
+                    and r.tip_rec = 'TR110'
+                  group by r.nis_rad) k,
+               (select rowid, nis_rad, f_lect from apmedida_co) p
+         where k.f_fact <> k.f_lect
+           and k.nis_rad = p.nis_rad
+           and k.f_lect = p.f_lect;
+    
+    begin
+      for x in ix loop
+      
+        update apmedida_co
+           set f_lect = x.f_fact, f_fact = x.f_fact
+         where rowid = x.rowid;
+      
+      end loop;
+      commit;
+    end;
+  
+    insert into apmedida_param
+      select ap.usuario, ap.f_actual, ap.programa, num_apa, co_marca,
+             trunc(f_inst) f_val, tip_csmo, 0 coef_per, 1 cte_prim,
+             1 cte_secund, 0 peso_entr, 0 peso_sal, 5 num_rue
+        from apmedida_ap ap, csmo_apa cs
+       where ap.tip_apa = cs.tip_apa
+         and not exists (select 0
+                from apmedida_param
+               where num_apa = ap.num_apa
+                 and co_marca = ap.co_marca);
+  
+    insert into apmedida_co
+      select ap.usuario, ap.f_actual, ap.programa, nis_rad, num_apa,
+             co_marca, tip_csmo, 0 lect,
+             to_date(20130901, 'yyyymmdd') f_lect, 0 csmo, 1 cte,
+             'RA003' tip_lect, to_date(20130901, 'yyyymmdd') f_fact,
+             0 dif_lect, 1 sec_rec, 5 num_rue, 1 sec_lect, 0 lect_ant,
+             to_date(20130901, 'yyyymmdd') f_trat, 'AN000' co_al, 0 cod_emp,
+             0 time_lect
+        from apmedida_ap ap, csmo_apa cs
+       where ap.tip_apa = cs.tip_apa
+         and not exists (select 0
+                from apmedida_co
+               where nis_rad = ap.nis_rad
+                 and num_apa = ap.num_apa
+                 and co_marca = ap.co_marca);
+  
+    commit;
+  
+    begin
+      for x in (select num_apa, co_marca, tip_csmo
+                  from apmedida_ap ap, csmo_apa cs
+                 where ap.tip_apa = cs.tip_apa
+                   and cs.tip_apa = 'TA165'
+                   and 3 <> (select count(*)
+                               from apmedida_param
+                              where num_apa = ap.num_apa
+                                and co_marca = ap.co_marca)) loop
+        update apmedida_ap
+           set tip_apa = 'TA101'
+         where num_apa = x.num_apa
+           and co_marca = x.co_marca;
+      end loop;
+      commit;
+    end;
+  
+    begin
+      for x in (select p.nis_rad, a.f_inst
+                  from puntomed_param p, apmedida_ap a
+                 where a.nis_rad = p.nis_rad
+                   and p.f_val > a.f_inst) loop
+      
+        update puntomed_param
+           set f_val = x.f_inst
+         where nis_rad = x.nis_rad;
+      
+      end loop;
+    
+      --update sumcon set f_res_cont = f_alta_cont where f_res_cont <> f_alta_cont;
+    
+      commit;
+    end;
+  
+    declare
+      cursor ix is
+        select p.nis_rad, p.f_alta_cont, a.f_inst
+          from sumcon p, apmedida_ap a
+         where a.nis_rad = p.nis_rad
+           and p.f_alta_cont > a.f_inst;
+    begin
+      for x in ix loop
+      
+        update sumcon
+           set f_alta_cont = x.f_inst, f_alta = x.f_inst,
+               f_res_cont = x.f_inst
+         where nis_rad = x.nis_rad;
+      
+      end loop;
+      commit;
+    end;
+  
+  end p40_conversion_clean_up;
 
 end conversion_pck;
 /

@@ -11,32 +11,41 @@ create or replace procedure conversion_sumcon is
      where nis_rad is null
        and cod_cli is not null
        and sec_cta is not null;
+  ll_cos_fi              number;
+  ll_emp_no              number;
   ll_nis_rad             number;
   ll_nis_rad_2           number;
   ll_nis_rad_7           number;
+  ll_ind_prefact         number;
+  ll_employee            number;
   ll_commit              number := 0;
   ll_cod_cnae            number := 1000;
   ll_prioridad           number := 9999;
   ll_cod                 varchar2(6) := 'RG000';
   ll_datos               varchar2(50) := ' ';
-  ll_tip_contr           varchar2(6) := 'PC000';
-  ll_tip_per_fact        varchar2(6) := 'PF012';
-  ll_co_recar_fp         varchar2(6) := 'RP001';
-  ll_tip_multa           varchar2(6) := 'MU001';
-  ll_tip_recargo         varchar2(6) := 'RC001';
-  ll_tip_per_lect        varchar2(6) := 'RU012';
-  ll_tip_asoc            varchar2(6) := 'IA000';
-  ll_cod_calc_pot        varchar2(6) := 'CP000';
-  ll_tip_alquiler        varchar2(6) := '/0/0/';
-  ll_tip_compensacion    varchar2(6) := '/0/0/';
-  ll_tip_autogenerador   varchar2(6) := '/0/0/';
-  ll_tip_distr_anticipos varchar2(6) := 'DB000';
-  ll_est_gest_impag      varchar2(6) := 'DR001';
-  ll_rent_revision       varchar2(6) := '/0/0/';
-  ll_tip_csmo_rang       varchar2(6) := 'UR001';
+  ls_rutafol             varchar2(20) := ' ';
+  ls_num_plza            varchar2(15) := 0;
+  ls_tip_contr           varchar2(6) := 'PC000';
+  ls_tip_per_fact        varchar2(6) := 'PF012';
+  ls_co_recar_fp         varchar2(6) := 'RP001';
+  ls_tip_multa           varchar2(6) := 'MU001';
+  ls_tip_recargo         varchar2(6) := 'RC001';
+  ls_tip_per_lect        varchar2(6) := 'RU012';
+  ls_tip_asoc            varchar2(6) := 'IA000';
+  ls_cod_calc_pot        varchar2(6) := 'CP000';
+  ls_tip_alquiler        varchar2(6) := '/0/0/';
+  ls_tip_compensacion    varchar2(6) := '/0/0/';
+  ls_tip_autogenerador   varchar2(6) := '/0/0/';
+  ls_tip_distr_anticipos varchar2(6) := 'DB000';
+  ls_est_gest_impag      varchar2(6) := 'DR001';
+  ls_rent_revision       varchar2(6) := '/0/0/';
+  ls_tip_csmo_rang       varchar2(6) := 'UR001';
   ls_program_name        varchar2(15) := 'CP3_sumcon';
   lf_fecha_nulla         date := conversion_pck.glf_fechanulla;
 begin
+
+  ll_emp_no := 0;
+
   select run_id.nextval into conversion_pck.gll_run_id from dual;
 
   --Log first to begin the program
@@ -56,6 +65,7 @@ begin
       for i in 1 .. 2 loop
         if i = 1 then
           ll_nis_rad                     := ll_nis_rad_2;
+          ls_num_plza                    := to_char(ll_nis_rad || '01');
           lcur_sumcon_rec.tip_suministro := nvl(lcur_sumcon_rec.tip_suministro,
                                                 'SU001');
           ll_datos                       := '/1/14/0/0/ / / / /1/ / /0/0/0/1/0/';
@@ -92,9 +102,24 @@ begin
                                                                                   8,
                                                                                   1)) * 3)),
                                                                11)), -1);
+        
+          ls_num_plza  := '0';
+          ll_nis_rad_7 := ll_nis_rad;
+        
         end if;
       
         ll_cod_cnae := lcur_sumcon_rec.cod_cnae;
+      
+        --value for IND_PREFACT and pot
+        if i = 1 and lcur_sumcon_rec.cod_mask = 4096 then
+          ll_ind_prefact      := 1;
+          ll_cos_fi           := 0.80;
+          lcur_sumcon_rec.pot := (nvl(lcur_sumcon_rec.pot, 0) * .8) * 1000;
+        else
+          ll_ind_prefact      := 2;
+          ll_cos_fi           := 1;
+          lcur_sumcon_rec.pot := nvl(lcur_sumcon_rec.pot, 0) * 1000;
+        end if;
       
         insert into intfopen.sumcon
           (usuario, f_actual, programa, nis_rad, sec_nis, est_sum, cod_cli,
@@ -119,31 +144,31 @@ begin
            cod_cli_agent, cod_cli_guarant, sec_cta_guarant, rent_revision,
            usuario_mod, f_mod_hist, tip_csmo_rang)
         values
-          (conversion_pck.gls_programa, trunc(sysdate),
+          (conversion_pck.gls_usuario, trunc(sysdate),
            conversion_pck.gls_programa, ll_nis_rad, 1,
            lcur_sumcon_rec.est_sum, lcur_sumcon_rec.cod_cli,
            lcur_sumcon_rec.sec_cta, nvl(lcur_sumcon_rec.pot, 0),
            lcur_sumcon_rec.cod_tar, lcur_sumcon_rec.gr_concepto,
-           lcur_sumcon_rec.f_alta, ll_tip_contr, 0, lcur_sumcon_rec.f_baja,
+           lcur_sumcon_rec.f_alta, ls_tip_contr, 0, lcur_sumcon_rec.f_baja,
            nvl(lcur_sumcon_rec.ind_lvto, 2), lf_fecha_nulla, 0, 0, 0,
-           ll_tip_per_fact, 0, 0, 0, 0, 0, 0, 0, lf_fecha_nulla, 0, 2,
-           lcur_sumcon_rec.f_alta, 0, ll_co_recar_fp, lf_fecha_nulla,
+           ls_tip_per_fact, 0, 0, 0, 0, 0, ls_num_plza, 0, lf_fecha_nulla, 0,
+           2, lcur_sumcon_rec.f_alta, 0, ls_co_recar_fp, lf_fecha_nulla,
            nvl(ll_cod_cnae, 9999), 0, 0, 0, 2, 2, 2, 0, 0,
-           nvl(lcur_sumcon_rec.co_estm, 'ME000'), 0, ll_tip_multa, 0,
-           ll_tip_recargo, 0, 1, lcur_sumcon_rec.f_alta, ' ',
+           nvl(lcur_sumcon_rec.co_estm, 'ME000'), 0, ls_tip_multa, 0,
+           ls_tip_recargo, 0, 1, lcur_sumcon_rec.f_alta, ' ',
            lcur_sumcon_rec.nif, lcur_sumcon_rec.f_alta, '  ',
            nvl(lcur_sumcon_rec.tip_tension, 'TT000'),
-           nvl(lcur_sumcon_rec.tip_fase, 'FA999'), 0,
+           nvl(lcur_sumcon_rec.tip_fase, 'FA001'), 0,
            nvl(lcur_sumcon_rec.tip_conexion, 'CX999'), ' ',
-           lcur_sumcon_rec.tip_suministro, ll_tip_per_lect, ll_tip_asoc, 0,
-           0, lcur_sumcon_rec.cod_unicom,
+           lcur_sumcon_rec.tip_suministro, ls_tip_per_lect, ls_tip_asoc, 0,
+           0, lcur_sumcon_rec.cod_unicom_serv,
            nvl(lcur_sumcon_rec.co_an_vip, 'VP999'), ' ', 2, 1,
-           ll_tip_distr_anticipos, ll_cod_calc_pot, ll_tip_alquiler,
-           ll_tip_compensacion, ll_tip_autogenerador, 0, 0, 0, 0, 0, 0.8,
-           ll_prioridad, ' ', 0, ll_datos, lf_fecha_nulla, 2,
-           lcur_sumcon_rec.cod_mask, ll_cod, 0, ll_est_gest_impag,
-           lf_fecha_nulla, 2, 0, 0, 0, ll_rent_revision,
-           conversion_pck.gls_programa, trunc(sysdate), ll_tip_csmo_rang);
+           ls_tip_distr_anticipos, ls_cod_calc_pot, ls_tip_alquiler,
+           ls_tip_compensacion, ls_tip_autogenerador, 0, 0, 0, 0, 0, 0
+           /*0.8 COS_FI*/, ll_prioridad, ' ', 0, ll_datos, lf_fecha_nulla, 2,
+           lcur_sumcon_rec.cod_mask, ll_cod, 0, ls_est_gest_impag,
+           lf_fecha_nulla, ll_ind_prefact, 0, 0, 0, ls_rent_revision,
+           conversion_pck.gls_usuario, trunc(sysdate), ls_tip_csmo_rang);
       
       end loop;
     
@@ -158,23 +183,53 @@ begin
          1, NVL(lcur_sumcon_rec.sec_nis, 1));
     
       --REL_NIS_RUTAFOL
-      if lcur_sumcon_rec.centre <> '999' then
+      if lcur_sumcon_rec.system_id <> '03' then
+        if lcur_sumcon_rec.system_id = '01' then
+          ls_rutafol := lcur_sumcon_rec.centre || lcur_sumcon_rec.client ||
+                        lcur_sumcon_rec.ordre;
+        else
+          ls_rutafol := lcur_sumcon_rec.centre || lcur_sumcon_rec.client;
+        end if;
+      
         insert into rel_nis_rutafol
           (usuario, f_actual, programa, ruta, folio, nis_rad, sec_nis,
            cod_cli, ref_num)
         values
           (conversion_pck.gls_programa, trunc(sysdate),
-           conversion_pck.gls_programa, 0,
-           lcur_sumcon_rec.centre || '-' || lcur_sumcon_rec.client || '-' ||
-            lcur_sumcon_rec.ordre, ll_nis_rad_7, 1, lcur_sumcon_rec.cod_cli,
-           lcur_sumcon_rec.centre || '-' || lcur_sumcon_rec.client || '-' ||
-            lcur_sumcon_rec.ordre);
+           conversion_pck.gls_programa, 0, ls_rutafol, ll_nis_rad_7, 1,
+           lcur_sumcon_rec.cod_cli, ls_rutafol);
       end if;
     
       update sgc.cuentas_cu
          set account_id = ll_nis_rad_7
        where cod_cli = lcur_sumcon_rec.cod_cli
          and sec_cta = lcur_sumcon_rec.sec_cta;
+    
+      --For employees add bonus.....  
+      if lcur_sumcon_rec.est_sum like 'EC01_' then
+        begin
+          select count(*)
+            into ll_employee
+            from edmgalatee.client
+           where conso in (select substr(obs_code, -4)
+                             from int_map_codes
+                            where code_type = 'TC000'
+                              and cms_desc = 'EMPLOYEE')
+             and centre = lcur_sumcon_rec.centre
+             and client = lcur_sumcon_rec.client;
+        
+          if ll_employee > 0 then
+          
+            ll_emp_no := ll_emp_no + 1;
+          
+            sgc.xml_api.addemployeebonus(p_nuit => lcur_sumcon_rec.nuit,
+                                         p_empnumber => ll_emp_no,
+                                         p_empstatus => 'E',
+                                         p_start_date => 20010101,
+                                         p_end_date => 29991231);
+          end if;
+        end;
+      end if;
     
       update int_supply
          set nis_rad = ll_nis_rad_2, sec_nis = 1
@@ -204,7 +259,7 @@ begin
   end loop;
 
   /*  Sumcon.Pot Updates  */
-  begin
+  /*begin
     update sumcon
        set pot = 2200
      where tip_suministro = 'SU001'
@@ -250,7 +305,7 @@ begin
        and pot = 20;
   
     commit;
-  end;
+  end;*/
 
   --Adding logging info for conversion into SUMCON_LOG....
   insert into sumcon_log

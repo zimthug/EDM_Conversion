@@ -1,0 +1,893 @@
+<HTML xmlns:lxslt="http://xml.apache.org/xslt" xmlns:exslt="http://exslt.org/common">
+<HEAD>
+<META http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<TITLE>EDM_Converdsion</TITLE>
+<LINK TITLE="Style" HREF="../stylesheet.css" TYPE="text/css" REL="stylesheet">
+<!--
+        sameCase=ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz
+        namesLowerCase=FALSE
+        namesUpperCase=FALSE
+        namesDefaultCase=TRUE
+        defaultNamesCase=UPPER
+        namesFromCase=ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz
+        namesToCase=ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-->
+</HEAD>
+<BODY BGCOLOR="white">
+<TABLE CELLSPACING="0" CELLPADDING="1" WIDTH="100%" BORDER="0">
+<TR>
+<TD CLASS="NavBarRow1" COLSPAN="2">
+<TABLE CELLSPACING="3" CELLPADDING="0" BORDER="0">
+<TR VALIGN="top" ALIGN="center">
+<TD CLASS="NavBarRow1"><A HREF="../summary.html"><FONT CLASS="NavBarFont1"><B>Overview</B></FONT></A> &nbsp;</TD><TD CLASS="NavBarRow1"><A HREF="../deprecated-list.html"><FONT CLASS="NavBarFont1"><B>Deprecated</B></FONT></A> &nbsp;</TD><TD CLASS="NavBarRow1"><A HREF="../index-list.html"><FONT CLASS="NavBarFont1"><B>Index</B></FONT></A> &nbsp;</TD><TD CLASS="NavBarRow1"><A HREF="../generator.html"><FONT CLASS="NavBarFont1"><B>Generator</B></FONT></A> &nbsp;</TD>
+</TR>
+</TABLE>
+</TD><TD rowspan="3" VALIGN="top" ALIGN="right"><EM><b>EDM_Converdsion</b></EM></TD>
+</TR>
+<TR>
+<TD CLASS="NavBarRow3" VALIGN="top"><FONT SIZE="-2">
+      SUMMARY:  <A HREF="#field_summary">FIELD</A> | <A HREF="#type_summary">TYPE</A> | <A HREF="#method_summary">METHOD</A></FONT></TD><TD CLASS="NavBarRow3" VALIGN="top"><FONT SIZE="-2">
+    DETAIL:  <A HREF="#field_detail">FIELD</A> | <A HREF="#type_detail">TYPE</A> | <A HREF="#method_detail">METHOD</A></FONT></TD>
+</TR>
+</TABLE>
+<HR>
+<H2>
+<FONT SIZE="-1"></FONT>
+<BR>Package&nbsp;CONVERSION_PCK</H2>
+<P></P>
+<DL></DL>
+<HR>
+<P></P>
+<A NAME="field_summary"></A>
+<TABLE WIDTH="100%" CELLSPACING="0" CELLPADDING="3" BORDER="1">
+<TR CLASS="TableHeadingColor">
+<TD COLSPAN="2"><FONT SIZE="+2"><B>Field Summary</B></FONT></TD>
+</TR>
+<TR CLASS="TableRowColor">
+<TD WIDTH="1%" VALIGN="top" ALIGN="right"><FONT SIZE="-1"><CODE>&nbsp;<!--
+       schemaName=
+       typeName=DATE
+       localTypeName=
+       schema=
+       fieldType=DATE
+       synonymsFile=,,--><!--GenerateTypeLink: default reached-->DATE</CODE></FONT></TD><TD><CODE><B><A HREF="#GLF_FECHANULLA">GLF_FECHANULLA</A></B> := TO_DATE(29991231, 'YYYYMMDD')</CODE>
+<BR>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+      </TD>
+</TR>
+<TR CLASS="TableRowColor">
+<TD WIDTH="1%" VALIGN="top" ALIGN="right"><FONT SIZE="-1"><CODE>&nbsp;<!--
+       schemaName=
+       typeName=NUMBER
+       localTypeName=
+       schema=
+       fieldType=NUMBER
+       synonymsFile=,,--><!--GenerateTypeLink: default reached-->NUMBER</CODE></FONT></TD><TD><CODE><B><A HREF="#GLL_RUN_ID">GLL_RUN_ID</A></B></CODE>
+<BR>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+       <b>Project:</b>  OpenSGC Data Conversion Module  <a href="http://41.220.242.130:8080/browse/EMCMS">EDM Project</a> <br>
+ <b>Description:</b> This package will be used as the main data conversion package.</TD>
+</TR>
+<TR CLASS="TableRowColor">
+<TD WIDTH="1%" VALIGN="top" ALIGN="right"><FONT SIZE="-1"><CODE>&nbsp;<!--
+       schemaName=
+       typeName=VARCHAR2(15)
+       localTypeName=
+       schema=
+       fieldType=VARCHAR2(15)
+       synonymsFile=,,--><!--GenerateTypeLink: default reached-->VARCHAR2(15)</CODE></FONT></TD><TD><CODE><B><A HREF="#GLS_PROGRAMA">GLS_PROGRAMA</A></B> := 'CONV_EDM'</CODE>
+<BR>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+      </TD>
+</TR>
+<TR CLASS="TableRowColor">
+<TD WIDTH="1%" VALIGN="top" ALIGN="right"><FONT SIZE="-1"><CODE>&nbsp;<!--
+       schemaName=
+       typeName=VARCHAR2(15)
+       localTypeName=
+       schema=
+       fieldType=VARCHAR2(15)
+       synonymsFile=,,--><!--GenerateTypeLink: default reached-->VARCHAR2(15)</CODE></FONT></TD><TD><CODE><B><A HREF="#GLS_USUARIO">GLS_USUARIO</A></B> := 'CONV_EDM'</CODE>
+<BR>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+      </TD>
+</TR>
+</TABLE>
+<P></P>
+<A NAME="type_summary"></A>
+<TABLE WIDTH="100%" CELLSPACING="0" CELLPADDING="3" BORDER="1">
+<TR CLASS="TableHeadingColor">
+<TD COLSPAN="2"><FONT SIZE="+2"><B>Type Summary</B></FONT></TD>
+</TR>
+<TR CLASS="TableRowColor">
+<TD WIDTH="1%" VALIGN="top" ALIGN="right"><FONT SIZE="-1"><CODE>&nbsp;<!--
+       schemaName=
+       typeName=RECORD
+       localTypeName=
+       schema=
+       fieldType=RECORD
+       synonymsFile=,,--><!--GenerateTypeLink: default reached-->RECORD</CODE></FONT></TD>
+<!-- 
+		siblingCount=0 
+		argumentCount=0 
+		predecessorCount=0 
+		siblingNoArgumentCount=0--><A NAME="NAME_REC"></A><TD><CODE><B><A HREF="#NAME_REC(VARCHAR2(30),VARCHAR2(30),VARCHAR2(30),VARCHAR2(5))">NAME_REC</A></B>(APE1_CLI VARCHAR2(30), NOM_CLI VARCHAR2(30), APE2_CLI VARCHAR2(30), CUALIF_CLI VARCHAR2(5))</CODE>
+<BR>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+       PL/SQL record type for customer names.</TD>
+</TR>
+</TABLE>
+<P></P>
+<A NAME="method_summary"></A>
+<TABLE WIDTH="100%" CELLSPACING="0" CELLPADDING="3" BORDER="1">
+<TR CLASS="TableHeadingColor">
+<TD COLSPAN="2"><FONT SIZE="+2"><B>Method Summary</B></FONT></TD>
+</TR>
+<TR CLASS="TableRowColor">
+<TD WIDTH="1%" VALIGN="top" ALIGN="right"><FONT SIZE="-1"><CODE>&nbsp;<!--
+       schemaName=
+       typeName=
+       localTypeName=
+       schema=
+       fieldType=
+       synonymsFile=,,--><!--GenerateTypeLink: default reached--></CODE></FONT></TD>
+<!-- 
+		siblingCount=0 
+		argumentCount=5 
+		predecessorCount=0 
+		siblingNoArgumentCount=0--><A NAME="ERROR_LOGGER"></A><TD><CODE><B><A HREF="#ERROR_LOGGER(VARCHAR2,NUMBER,VARCHAR2,VARCHAR2,VARCHAR2)">ERROR_LOGGER</A></B>(P_ERROR_MSG IN VARCHAR2, P_RUN_ID IN NUMBER, P_PROGRAM_NAME IN VARCHAR2, P_TIP_ID IN VARCHAR2, P_ID_NUMBER IN VARCHAR2)</CODE>
+<BR>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+       Logs error messages which will be generated by programs as they run.</TD>
+</TR>
+<TR CLASS="TableRowColor">
+<TD WIDTH="1%" VALIGN="top" ALIGN="right"><FONT SIZE="-1"><CODE>&nbsp;<!--
+       schemaName=
+       typeName=
+       localTypeName=
+       schema=
+       fieldType=
+       synonymsFile=,,--><!--GenerateTypeLink: default reached--></CODE></FONT></TD>
+<!-- 
+		siblingCount=0 
+		argumentCount=5 
+		predecessorCount=0 
+		siblingNoArgumentCount=0--><A NAME="LOGGER"></A><TD><CODE><B><A HREF="#LOGGER(NUMBER,VARCHAR2,VARCHAR2,VARCHAR2,NUMBER)">LOGGER</A></B>(P_RUN_ID IN NUMBER, P_PROGRAM_NAME IN VARCHAR2, P_MESSAGE IN VARCHAR2, P_STATUS IN VARCHAR2, P_ROW_COUNT IN NUMBER)</CODE>
+<BR>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+       Logging times and records loaded by the program.</TD>
+</TR>
+<TR CLASS="TableRowColor">
+<TD WIDTH="1%" VALIGN="top" ALIGN="right"><FONT SIZE="-1"><CODE>&nbsp;<!--
+       schemaName=
+       typeName=VARCHAR2
+       localTypeName=
+       schema=
+       fieldType=VARCHAR2
+       synonymsFile=,,--><!--GenerateTypeLink: default reached-->VARCHAR2</CODE></FONT></TD>
+<!-- 
+		siblingCount=0 
+		argumentCount=3 
+		predecessorCount=0 
+		siblingNoArgumentCount=0--><A NAME="MAP_CODES"></A><TD><CODE><B><A HREF="#MAP_CODES(VARCHAR2,VARCHAR2,VARCHAR2)">MAP_CODES</A></B>(LS_SYSTEM_ID IN VARCHAR2, LS_CODE_TYPE IN VARCHAR2, LS_CODE IN VARCHAR2)</CODE>
+<BR>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+       Mapping of old system codes to the equivalences in CMS
+</TD>
+</TR>
+<TR CLASS="TableRowColor">
+<TD WIDTH="1%" VALIGN="top" ALIGN="right"><FONT SIZE="-1"><CODE>&nbsp;<!--
+       schemaName=
+       typeName=
+       localTypeName=
+       schema=
+       fieldType=
+       synonymsFile=,,--><!--GenerateTypeLink: default reached--></CODE></FONT></TD>
+<!-- 
+		siblingCount=0 
+		argumentCount=0 
+		predecessorCount=0 
+		siblingNoArgumentCount=0--><TD><CODE><B><A HREF="#P01_GEOGRAPHICAL_STRUCTURE">P01_GEOGRAPHICAL_STRUCTURE</A></B>()</CODE>
+<BR>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+      </TD>
+</TR>
+<TR CLASS="TableRowColor">
+<TD WIDTH="1%" VALIGN="top" ALIGN="right"><FONT SIZE="-1"><CODE>&nbsp;<!--
+       schemaName=
+       typeName=
+       localTypeName=
+       schema=
+       fieldType=
+       synonymsFile=,,--><!--GenerateTypeLink: default reached--></CODE></FONT></TD>
+<!-- 
+		siblingCount=0 
+		argumentCount=1 
+		predecessorCount=0 
+		siblingNoArgumentCount=0--><A NAME="P02_INT_SUPPLY_ALL"></A><TD><CODE><B><A HREF="#P02_INT_SUPPLY_ALL(VARCHAR2)">P02_INT_SUPPLY_ALL</A></B>(GLS_SYSTEM_ID IN VARCHAR2)</CODE>
+<BR>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+      </TD>
+</TR>
+<TR CLASS="TableRowColor">
+<TD WIDTH="1%" VALIGN="top" ALIGN="right"><FONT SIZE="-1"><CODE>&nbsp;<!--
+       schemaName=
+       typeName=
+       localTypeName=
+       schema=
+       fieldType=
+       synonymsFile=,,--><!--GenerateTypeLink: default reached--></CODE></FONT></TD>
+<!-- 
+		siblingCount=0 
+		argumentCount=0 
+		predecessorCount=0 
+		siblingNoArgumentCount=0--><TD><CODE><B><A HREF="#P03_INT_METER_POSTPAID">P03_INT_METER_POSTPAID</A></B>()</CODE>
+<BR>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+      </TD>
+</TR>
+<TR CLASS="TableRowColor">
+<TD WIDTH="1%" VALIGN="top" ALIGN="right"><FONT SIZE="-1"><CODE>&nbsp;<!--
+       schemaName=
+       typeName=
+       localTypeName=
+       schema=
+       fieldType=
+       synonymsFile=,,--><!--GenerateTypeLink: default reached--></CODE></FONT></TD>
+<!-- 
+		siblingCount=0 
+		argumentCount=0 
+		predecessorCount=0 
+		siblingNoArgumentCount=0--><TD><CODE><B><A HREF="#P03_INT_METER_PREPAID">P03_INT_METER_PREPAID</A></B>()</CODE>
+<BR>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+      </TD>
+</TR>
+<TR CLASS="TableRowColor">
+<TD WIDTH="1%" VALIGN="top" ALIGN="right"><FONT SIZE="-1"><CODE>&nbsp;<!--
+       schemaName=
+       typeName=
+       localTypeName=
+       schema=
+       fieldType=
+       synonymsFile=,,--><!--GenerateTypeLink: default reached--></CODE></FONT></TD>
+<!-- 
+		siblingCount=0 
+		argumentCount=0 
+		predecessorCount=0 
+		siblingNoArgumentCount=0--><TD><CODE><B><A HREF="#P04_RUN_PHASE3">P04_RUN_PHASE3</A></B>()</CODE>
+<BR>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+      </TD>
+</TR>
+<TR CLASS="TableRowColor">
+<TD WIDTH="1%" VALIGN="top" ALIGN="right"><FONT SIZE="-1"><CODE>&nbsp;<!--
+       schemaName=
+       typeName=
+       localTypeName=
+       schema=
+       fieldType=
+       synonymsFile=,,--><!--GenerateTypeLink: default reached--></CODE></FONT></TD>
+<!-- 
+		siblingCount=0 
+		argumentCount=0 
+		predecessorCount=0 
+		siblingNoArgumentCount=0--><TD><CODE><B><A HREF="#P05_APMEDIDA_AP">P05_APMEDIDA_AP</A></B>()</CODE>
+<BR>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+      </TD>
+</TR>
+<TR CLASS="TableRowColor">
+<TD WIDTH="1%" VALIGN="top" ALIGN="right"><FONT SIZE="-1"><CODE>&nbsp;<!--
+       schemaName=
+       typeName=
+       localTypeName=
+       schema=
+       fieldType=
+       synonymsFile=,,--><!--GenerateTypeLink: default reached--></CODE></FONT></TD>
+<!-- 
+		siblingCount=0 
+		argumentCount=0 
+		predecessorCount=0 
+		siblingNoArgumentCount=0--><TD><CODE><B><A HREF="#P06_READINGS_ACCESS">P06_READINGS_ACCESS</A></B>()</CODE>
+<BR>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+      </TD>
+</TR>
+<TR CLASS="TableRowColor">
+<TD WIDTH="1%" VALIGN="top" ALIGN="right"><FONT SIZE="-1"><CODE>&nbsp;<!--
+       schemaName=
+       typeName=
+       localTypeName=
+       schema=
+       fieldType=
+       synonymsFile=,,--><!--GenerateTypeLink: default reached--></CODE></FONT></TD>
+<!-- 
+		siblingCount=0 
+		argumentCount=0 
+		predecessorCount=0 
+		siblingNoArgumentCount=0--><TD><CODE><B><A HREF="#P06_READINGS_CLEANUP">P06_READINGS_CLEANUP</A></B>()</CODE>
+<BR>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+      </TD>
+</TR>
+<TR CLASS="TableRowColor">
+<TD WIDTH="1%" VALIGN="top" ALIGN="right"><FONT SIZE="-1"><CODE>&nbsp;<!--
+       schemaName=
+       typeName=
+       localTypeName=
+       schema=
+       fieldType=
+       synonymsFile=,,--><!--GenerateTypeLink: default reached--></CODE></FONT></TD>
+<!-- 
+		siblingCount=0 
+		argumentCount=0 
+		predecessorCount=0 
+		siblingNoArgumentCount=0--><TD><CODE><B><A HREF="#P06_READINGS_GALATEE">P06_READINGS_GALATEE</A></B>()</CODE>
+<BR>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+      </TD>
+</TR>
+<TR CLASS="TableRowColor">
+<TD WIDTH="1%" VALIGN="top" ALIGN="right"><FONT SIZE="-1"><CODE>&nbsp;<!--
+       schemaName=
+       typeName=
+       localTypeName=
+       schema=
+       fieldType=
+       synonymsFile=,,--><!--GenerateTypeLink: default reached--></CODE></FONT></TD>
+<!-- 
+		siblingCount=0 
+		argumentCount=0 
+		predecessorCount=0 
+		siblingNoArgumentCount=0--><TD><CODE><B><A HREF="#P07_READING_ROUTES">P07_READING_ROUTES</A></B>()</CODE>
+<BR>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+      </TD>
+</TR>
+<TR CLASS="TableRowColor">
+<TD WIDTH="1%" VALIGN="top" ALIGN="right"><FONT SIZE="-1"><CODE>&nbsp;<!--
+       schemaName=
+       typeName=
+       localTypeName=
+       schema=
+       fieldType=
+       synonymsFile=,,--><!--GenerateTypeLink: default reached--></CODE></FONT></TD>
+<!-- 
+		siblingCount=0 
+		argumentCount=1 
+		predecessorCount=0 
+		siblingNoArgumentCount=0--><A NAME="P20_BILLING_GALATEE"></A><TD><CODE><B><A HREF="#P20_BILLING_GALATEE(NUMBER)">P20_BILLING_GALATEE</A></B>(PLL_NIS_RAD IN NUMBER DEFAULT 0)</CODE>
+<BR>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+      
+</TD>
+</TR>
+<TR CLASS="TableRowColor">
+<TD WIDTH="1%" VALIGN="top" ALIGN="right"><FONT SIZE="-1"><CODE>&nbsp;<!--
+       schemaName=
+       typeName=
+       localTypeName=
+       schema=
+       fieldType=
+       synonymsFile=,,--><!--GenerateTypeLink: default reached--></CODE></FONT></TD>
+<!-- 
+		siblingCount=0 
+		argumentCount=0 
+		predecessorCount=0 
+		siblingNoArgumentCount=0--><TD><CODE><B><A HREF="#P30_DEPOSITS">P30_DEPOSITS</A></B>()</CODE>
+<BR>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+      </TD>
+</TR>
+<TR CLASS="TableRowColor">
+<TD WIDTH="1%" VALIGN="top" ALIGN="right"><FONT SIZE="-1"><CODE>&nbsp;<!--
+       schemaName=
+       typeName=
+       localTypeName=
+       schema=
+       fieldType=
+       synonymsFile=,,--><!--GenerateTypeLink: default reached--></CODE></FONT></TD>
+<!-- 
+		siblingCount=0 
+		argumentCount=0 
+		predecessorCount=0 
+		siblingNoArgumentCount=0--><TD><CODE><B><A HREF="#P40_CONVERSION_CLEAN_UP">P40_CONVERSION_CLEAN_UP</A></B>()</CODE>
+<BR>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+      </TD>
+</TR>
+<TR CLASS="TableRowColor">
+<TD WIDTH="1%" VALIGN="top" ALIGN="right"><FONT SIZE="-1"><CODE>&nbsp;<!--
+       schemaName=
+       typeName=
+       localTypeName=
+       schema=
+       fieldType=
+       synonymsFile=,,--><!--GenerateTypeLink: default reached--></CODE></FONT></TD>
+<!-- 
+		siblingCount=0 
+		argumentCount=2 
+		predecessorCount=0 
+		siblingNoArgumentCount=0--><A NAME="SPLIT_LONG_NAMES"></A><TD><CODE><B><A HREF="#SPLIT_LONG_NAMES(VARCHAR2,NAME_REC)">SPLIT_LONG_NAMES</A></B>(PLS_NAME IN VARCHAR2, NAMES$ OUT NAME_REC)</CODE>
+<BR>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+      </TD>
+</TR>
+</TABLE>
+<P></P>
+<A NAME="trigger_summary"></A><A NAME="field_detail"></A>
+<TABLE WIDTH="100%" CELLSPACING="0" CELLPADDING="3" BORDER="1">
+<TR CLASS="TableHeadingColor">
+<TD COLSPAN="1"><FONT SIZE="+2"><B>Field Detail</B></FONT></TD>
+</TR>
+</TABLE>
+<A NAME="GLF_FECHANULLA"></A>
+<H3>GLF_FECHANULLA</H3>
+<PRE>
+        public DATE <B>GLF_FECHANULLA</B> := TO_DATE(29991231, 'YYYYMMDD')</PRE>
+<DL>
+<DD></DD>
+<DD>
+<DL></DL>
+</DD>
+</DL>
+<HR>
+<A NAME="GLL_RUN_ID"></A>
+<H3>GLL_RUN_ID</H3>
+<PRE>
+        public NUMBER <B>GLL_RUN_ID</B>
+</PRE>
+<DL>
+<DD> <b>Project:</b>  OpenSGC Data Conversion Module  <a href="http://41.220.242.130:8080/browse/EMCMS">EDM Project</a> <br>
+ <b>Description:</b> This package will be used as the main data conversion package. It contains all the
+ necessary procedures and functions for converting data from EDM's current systems to the CMS.
+ The package is used to convert the following systems to CMS.
+        <li>Galatee to CMS</li>
+        <li>Access to CMS </li>
+        <li>Eclipse to CMS</li>
+</DD>
+<DD>
+<DL></DL>
+</DD>
+</DL>
+<HR>
+<A NAME="GLS_PROGRAMA"></A>
+<H3>GLS_PROGRAMA</H3>
+<PRE>
+        public VARCHAR2(15) <B>GLS_PROGRAMA</B> := 'CONV_EDM'</PRE>
+<DL>
+<DD></DD>
+<DD>
+<DL></DL>
+</DD>
+</DL>
+<HR>
+<A NAME="GLS_USUARIO"></A>
+<H3>GLS_USUARIO</H3>
+<PRE>
+        public VARCHAR2(15) <B>GLS_USUARIO</B> := 'CONV_EDM'</PRE>
+<DL>
+<DD></DD>
+<DD>
+<DL></DL>
+</DD>
+</DL>
+<HR>
+<A NAME="type_detail"></A>
+<TABLE WIDTH="100%" CELLSPACING="0" CELLPADDING="3" BORDER="1">
+<TR CLASS="TableHeadingColor">
+<TD COLSPAN="1"><FONT SIZE="+2"><B>Type Detail</B></FONT></TD>
+</TR>
+</TABLE>
+<A NAME="NAME_REC(VARCHAR2(30),VARCHAR2(30),VARCHAR2(30),VARCHAR2(5))"></A>
+<H3>NAME_REC</H3>
+<PRE>public <!--
+       schemaName=
+       typeName=RECORD
+       localTypeName=
+       schema=
+       fieldType=RECORD
+       synonymsFile=,,--><!--GenerateTypeLink: default reached-->RECORD <B>NAME_REC</B>(APE1_CLI VARCHAR2(30), <BR>                       NOM_CLI VARCHAR2(30), <BR>                       APE2_CLI VARCHAR2(30), <BR>                       CUALIF_CLI VARCHAR2(5))</PRE>
+<DL>
+<DD> PL/SQL record type for customer names. Used for splitting the name into first, surname, other names and title.
+</DD>
+<DD>
+<DL></DL>
+</DD>
+<P></P>
+<DL></DL>
+</DL>
+<HR>
+<A NAME="method_detail"></A>
+<TABLE WIDTH="100%" CELLSPACING="0" CELLPADDING="3" BORDER="1">
+<TR CLASS="TableHeadingColor">
+<TD COLSPAN="1"><FONT SIZE="+2"><B>Method Detail</B></FONT></TD>
+</TR>
+</TABLE>
+<A NAME="ERROR_LOGGER(VARCHAR2,NUMBER,VARCHAR2,VARCHAR2,VARCHAR2)"></A>
+<H3>ERROR_LOGGER</H3>
+<PRE>public <!--
+       schemaName=
+       typeName=
+       localTypeName=
+       schema=
+       fieldType=
+       synonymsFile=,,--><!--GenerateTypeLink: default reached--> <B>ERROR_LOGGER</B>(P_ERROR_MSG IN VARCHAR2, <BR>                     P_RUN_ID IN NUMBER, <BR>                     P_PROGRAM_NAME IN VARCHAR2, <BR>                     P_TIP_ID IN VARCHAR2, <BR>                     P_ID_NUMBER IN VARCHAR2)</PRE>
+<DL>
+<DD> Logs error messages which will be generated by programs as they run. The logs are written to a table ERROR_LOG.
+</DD>
+<DD>
+<DL>
+<DT>Parameters:
+        <DD>
+<CODE>P_ERROR_MSG</CODE> -
+              The full error message generated.</DD>
+<DD>
+<CODE>P_RUN_ID</CODE> -
+              The program ID number.</DD>
+<DD>
+<CODE>P_PROGRAM_NAME</CODE> -
+              The program identifier.</DD>
+<DD>
+<CODE>P_TIP_ID</CODE> -
+              Type of ID to use e.g. CONV_ID, OLD ACCOUNT etc.</DD>
+<DD>
+<CODE>P_ID_NUMBER</CODE> -
+              The ID number for the failing record.</DD>
+</DT>
+</DL>
+</DD>
+<P></P>
+<DL>
+<DT>Author:</DT>
+<DD>tmlangeni@eservicios.indracompany.com</DD>
+</DL>
+</DL>
+<HR>
+<A NAME="LOGGER(NUMBER,VARCHAR2,VARCHAR2,VARCHAR2,NUMBER)"></A>
+<H3>LOGGER</H3>
+<PRE>public <!--
+       schemaName=
+       typeName=
+       localTypeName=
+       schema=
+       fieldType=
+       synonymsFile=,,--><!--GenerateTypeLink: default reached--> <B>LOGGER</B>(P_RUN_ID IN NUMBER, <BR>               P_PROGRAM_NAME IN VARCHAR2, <BR>               P_MESSAGE IN VARCHAR2, <BR>               P_STATUS IN VARCHAR2, <BR>               P_ROW_COUNT IN NUMBER)</PRE>
+<DL>
+<DD> Logging times and records loaded by the program. The logs are written to a database table called CONV_LOGGER
+</DD>
+<DD>
+<DL>
+<DT>Parameters:
+        <DD>
+<CODE>P_RUN_ID</CODE> -
+              The program ID number.</DD>
+<DD>
+<CODE>P_PROGRAM_NAME</CODE> -
+              The program identifier.</DD>
+<DD>
+<CODE>P_MESSAGE</CODE> -
+              The message to log</DD>
+<DD>
+<CODE>P_STATUS</CODE> -
+              Status of the program. Allowed values are (RUNNING,ABORTED,STARTING, ENDING)</DD>
+<DD>
+<CODE>P_ROW_COUNT</CODE> -
+              Number of rows processed by the program</DD>
+</DT>
+</DL>
+</DD>
+<P></P>
+<DL>
+<DT>Author:</DT>
+<DD>tmlangeni@eservicios.indracompany.com</DD>
+</DL>
+</DL>
+<HR>
+<A NAME="MAP_CODES(VARCHAR2,VARCHAR2,VARCHAR2)"></A>
+<H3>MAP_CODES</H3>
+<PRE>public <!--
+       schemaName=
+       typeName=VARCHAR2
+       localTypeName=
+       schema=
+       fieldType=VARCHAR2
+       synonymsFile=,,--><!--GenerateTypeLink: default reached-->VARCHAR2 <B>MAP_CODES</B>(LS_SYSTEM_ID IN VARCHAR2, <BR>                          LS_CODE_TYPE IN VARCHAR2, <BR>                          LS_CODE IN VARCHAR2)</PRE>
+<DL>
+<DD> Mapping of old system codes to the equivalences in CMS
+</DD>
+<DD>
+<DL>
+<DT>Parameters:
+        <DD>
+<CODE>LS_SYSTEM_ID</CODE> -
+              System in use. With 1 being Galatee, 2 Access and 3 Eclipse</DD>
+<DD>
+<CODE>LS_CODE_TYPE</CODE> -
+              Code type to lookup.</DD>
+<DD>
+<CODE>LS_CODE</CODE> -
+              Old system code</DD>
+</DT>
+</DL>
+</DD>
+<P></P>
+<DL>
+<DT>Author:</DT>
+<DD>tmlangeni@eservicios.indracompany.com</DD>
+</DL>
+</DL>
+<HR>
+<A NAME="P01_GEOGRAPHICAL_STRUCTURE"></A>
+<H3>P01_GEOGRAPHICAL_STRUCTURE</H3>
+<PRE>public <!--
+       schemaName=
+       typeName=
+       localTypeName=
+       schema=
+       fieldType=
+       synonymsFile=,,--><!--GenerateTypeLink: default reached--> <B>P01_GEOGRAPHICAL_STRUCTURE</B>()</PRE>
+<DL>
+<DD></DD>
+<DD>
+<DL></DL>
+</DD>
+<P></P>
+<DL></DL>
+</DL>
+<HR>
+<A NAME="P02_INT_SUPPLY_ALL(VARCHAR2)"></A>
+<H3>P02_INT_SUPPLY_ALL</H3>
+<PRE>public <!--
+       schemaName=
+       typeName=
+       localTypeName=
+       schema=
+       fieldType=
+       synonymsFile=,,--><!--GenerateTypeLink: default reached--> <B>P02_INT_SUPPLY_ALL</B>(GLS_SYSTEM_ID IN VARCHAR2)</PRE>
+<DL>
+<DD></DD>
+<DD>
+<DL></DL>
+</DD>
+<P></P>
+<DL></DL>
+</DL>
+<HR>
+<A NAME="P03_INT_METER_POSTPAID"></A>
+<H3>P03_INT_METER_POSTPAID</H3>
+<PRE>public <!--
+       schemaName=
+       typeName=
+       localTypeName=
+       schema=
+       fieldType=
+       synonymsFile=,,--><!--GenerateTypeLink: default reached--> <B>P03_INT_METER_POSTPAID</B>()</PRE>
+<DL>
+<DD></DD>
+<DD>
+<DL></DL>
+</DD>
+<P></P>
+<DL></DL>
+</DL>
+<HR>
+<A NAME="P03_INT_METER_PREPAID"></A>
+<H3>P03_INT_METER_PREPAID</H3>
+<PRE>public <!--
+       schemaName=
+       typeName=
+       localTypeName=
+       schema=
+       fieldType=
+       synonymsFile=,,--><!--GenerateTypeLink: default reached--> <B>P03_INT_METER_PREPAID</B>()</PRE>
+<DL>
+<DD></DD>
+<DD>
+<DL></DL>
+</DD>
+<P></P>
+<DL></DL>
+</DL>
+<HR>
+<A NAME="P04_RUN_PHASE3"></A>
+<H3>P04_RUN_PHASE3</H3>
+<PRE>public <!--
+       schemaName=
+       typeName=
+       localTypeName=
+       schema=
+       fieldType=
+       synonymsFile=,,--><!--GenerateTypeLink: default reached--> <B>P04_RUN_PHASE3</B>()</PRE>
+<DL>
+<DD></DD>
+<DD>
+<DL></DL>
+</DD>
+<P></P>
+<DL></DL>
+</DL>
+<HR>
+<A NAME="P05_APMEDIDA_AP"></A>
+<H3>P05_APMEDIDA_AP</H3>
+<PRE>public <!--
+       schemaName=
+       typeName=
+       localTypeName=
+       schema=
+       fieldType=
+       synonymsFile=,,--><!--GenerateTypeLink: default reached--> <B>P05_APMEDIDA_AP</B>()</PRE>
+<DL>
+<DD></DD>
+<DD>
+<DL></DL>
+</DD>
+<P></P>
+<DL></DL>
+</DL>
+<HR>
+<A NAME="P06_READINGS_ACCESS"></A>
+<H3>P06_READINGS_ACCESS</H3>
+<PRE>public <!--
+       schemaName=
+       typeName=
+       localTypeName=
+       schema=
+       fieldType=
+       synonymsFile=,,--><!--GenerateTypeLink: default reached--> <B>P06_READINGS_ACCESS</B>()</PRE>
+<DL>
+<DD></DD>
+<DD>
+<DL></DL>
+</DD>
+<P></P>
+<DL></DL>
+</DL>
+<HR>
+<A NAME="P06_READINGS_CLEANUP"></A>
+<H3>P06_READINGS_CLEANUP</H3>
+<PRE>public <!--
+       schemaName=
+       typeName=
+       localTypeName=
+       schema=
+       fieldType=
+       synonymsFile=,,--><!--GenerateTypeLink: default reached--> <B>P06_READINGS_CLEANUP</B>()</PRE>
+<DL>
+<DD></DD>
+<DD>
+<DL></DL>
+</DD>
+<P></P>
+<DL></DL>
+</DL>
+<HR>
+<A NAME="P06_READINGS_GALATEE"></A>
+<H3>P06_READINGS_GALATEE</H3>
+<PRE>public <!--
+       schemaName=
+       typeName=
+       localTypeName=
+       schema=
+       fieldType=
+       synonymsFile=,,--><!--GenerateTypeLink: default reached--> <B>P06_READINGS_GALATEE</B>()</PRE>
+<DL>
+<DD></DD>
+<DD>
+<DL></DL>
+</DD>
+<P></P>
+<DL></DL>
+</DL>
+<HR>
+<A NAME="P07_READING_ROUTES"></A>
+<H3>P07_READING_ROUTES</H3>
+<PRE>public <!--
+       schemaName=
+       typeName=
+       localTypeName=
+       schema=
+       fieldType=
+       synonymsFile=,,--><!--GenerateTypeLink: default reached--> <B>P07_READING_ROUTES</B>()</PRE>
+<DL>
+<DD></DD>
+<DD>
+<DL></DL>
+</DD>
+<P></P>
+<DL></DL>
+</DL>
+<HR>
+<A NAME="P20_BILLING_GALATEE(NUMBER)"></A>
+<H3>P20_BILLING_GALATEE</H3>
+<PRE>public <!--
+       schemaName=
+       typeName=
+       localTypeName=
+       schema=
+       fieldType=
+       synonymsFile=,,--><!--GenerateTypeLink: default reached--> <B>P20_BILLING_GALATEE</B>(PLL_NIS_RAD IN NUMBER DEFAULT 0)</PRE>
+<DL>
+<DD>
+</DD>
+<DD>
+<DL></DL>
+</DD>
+<P></P>
+<DL></DL>
+</DL>
+<HR>
+<A NAME="P30_DEPOSITS"></A>
+<H3>P30_DEPOSITS</H3>
+<PRE>public <!--
+       schemaName=
+       typeName=
+       localTypeName=
+       schema=
+       fieldType=
+       synonymsFile=,,--><!--GenerateTypeLink: default reached--> <B>P30_DEPOSITS</B>()</PRE>
+<DL>
+<DD></DD>
+<DD>
+<DL></DL>
+</DD>
+<P></P>
+<DL></DL>
+</DL>
+<HR>
+<A NAME="P40_CONVERSION_CLEAN_UP"></A>
+<H3>P40_CONVERSION_CLEAN_UP</H3>
+<PRE>public <!--
+       schemaName=
+       typeName=
+       localTypeName=
+       schema=
+       fieldType=
+       synonymsFile=,,--><!--GenerateTypeLink: default reached--> <B>P40_CONVERSION_CLEAN_UP</B>()</PRE>
+<DL>
+<DD></DD>
+<DD>
+<DL></DL>
+</DD>
+<P></P>
+<DL></DL>
+</DL>
+<HR>
+<A NAME="SPLIT_LONG_NAMES(VARCHAR2,NAME_REC)"></A>
+<H3>SPLIT_LONG_NAMES</H3>
+<PRE>public <!--
+       schemaName=
+       typeName=
+       localTypeName=
+       schema=
+       fieldType=
+       synonymsFile=,,--><!--GenerateTypeLink: default reached--> <B>SPLIT_LONG_NAMES</B>(PLS_NAME IN VARCHAR2, <BR>                         NAMES$ OUT NAME_REC)</PRE>
+<DL>
+<DD></DD>
+<DD>
+<DL></DL>
+</DD>
+<P></P>
+<DL></DL>
+</DL>
+<HR>
+<A NAME="trigger_detail"></A>
+<TABLE CELLSPACING="0" CELLPADDING="1" WIDTH="100%" BORDER="0">
+<TR>
+<TD CLASS="NavBarRow1" COLSPAN="2">
+<TABLE CELLSPACING="3" CELLPADDING="0" BORDER="0">
+<TR VALIGN="top" ALIGN="center">
+<TD CLASS="NavBarRow1"><A HREF="../summary.html"><FONT CLASS="NavBarFont1"><B>Overview</B></FONT></A> &nbsp;</TD><TD CLASS="NavBarRow1"><A HREF="../deprecated-list.html"><FONT CLASS="NavBarFont1"><B>Deprecated</B></FONT></A> &nbsp;</TD><TD CLASS="NavBarRow1"><A HREF="../index-list.html"><FONT CLASS="NavBarFont1"><B>Index</B></FONT></A> &nbsp;</TD><TD CLASS="NavBarRow1"><A HREF="../generator.html"><FONT CLASS="NavBarFont1"><B>Generator</B></FONT></A> &nbsp;</TD>
+</TR>
+</TABLE>
+</TD><TD rowspan="3" VALIGN="top" ALIGN="right"><EM><b>EDM_Converdsion</b></EM></TD>
+</TR>
+<TR>
+<TD CLASS="NavBarRow3" VALIGN="top"><FONT SIZE="-2">
+      SUMMARY:  <A HREF="#field_summary">FIELD</A> | <A HREF="#type_summary">TYPE</A> | <A HREF="#method_summary">METHOD</A></FONT></TD><TD CLASS="NavBarRow3" VALIGN="top"><FONT SIZE="-2">
+    DETAIL:  <A HREF="#field_detail">FIELD</A> | <A HREF="#type_detail">TYPE</A> | <A HREF="#method_detail">METHOD</A></FONT></TD>
+</TR>
+</TABLE>
+<HR>
+</BODY>
+</HTML>

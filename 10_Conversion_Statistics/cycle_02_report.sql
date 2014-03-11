@@ -1,23 +1,31 @@
-select area "Area", received "Received", active "Active",
-       inactive "Inactive", converted "Converted",
+select area "Area", active "Active", inactive - inact_no_balance "Inactive Balance",
+       inact_no_balance "Inactive No Balance",
+       inactive "Inactive Total", received "Received Total", converted "Converted",
        received - converted "Not Converted",
-       round((converted / received) * 100, 2) "%age Converted"
+       round((converted / received) * 100, 2) "Percentage Converted"
   from (select area, count(*) received,
                 sum(decode(est_sum, 'EC012', 1)) active,
                 sum(decode(est_sum, 'EC012', 0, 1)) inactive,
-                sum(decode(nis_rad, null, 0, 1)) converted
+                sum(decode(nis_rad, null, 0, 1)) converted,
+                sum(decode(est_sum || nis, 'EC0210', 1, 0)) inact_no_balance
            from (select case
-                           when centre in ('006', '040', '050', '060') then
+                           when centre in ('006', '040', '050', '060') and
+                                system_id = '01' then
                             'POST PAID - MAPUTO PROVINCE'
                            when centre not in
-                                ('006', '040', '050', '060', '999') then
+                                ('006', '040', '050', '060', '999') and
+                                system_id = '01' then
                             'POST PAID - MAPUTO CITY'
-                           else
-                            'PREPAID (BOTH CITY AND PROVINCE)'
-                         end area, nis_rad, est_sum
-                    from int_supply)
+                           when system_id = '03' then
+                            'PREPAID ONLINE'
+                           when system_id = '02' then
+                            'POST PAID - XAI XAI'
+                         end area, nis_rad, est_sum, nvl(nis_rad, 0) nis
+                    from int_supply /*where system_id not in ('02')*/
+                  )
           group by area)
  order by 1;
+
  
  
 select 'Prepaid' "Cust. Type", province "Province", area "District",
@@ -58,6 +66,15 @@ select b.obs_tariff, b.obs_desc, desc_tar
    and b.obs_tariff = lpad(a.tarif, 6, 0)) group by obs_tariff, obs_desc, desc_tar order by 1;
    
 
+select obs_tariff "Access Code", obs_desc "Access Tariff", desc_tar "CMS Tariff", count(*) "Count" from (
+select b.obs_tariff, b.obs_desc, desc_tar
+  from int_supply s, EDMACCESS.consumidores a, mtarifas m, int_map_tariffs b
+ where nis_rad is not null
+   and s.centre = a.zona
+   and s.client = a.no_da_instalacao
+   and s.cod_tar = m.cod_tar
+   and b.obs_tariff = a.categoria) group by obs_tariff, obs_desc, desc_tar order by 1;
+
 select s.cod_tar, desc_tar, sum(imp_tot_rec) total,
        sum(decode(est_sum, 'EC012', imp_tot_rec, 0)) active,
        sum(decode(est_sum, 'EC012', 0, imp_tot_rec)) inactive
@@ -65,7 +82,7 @@ select s.cod_tar, desc_tar, sum(imp_tot_rec) total,
  where r.nis_rad = s.nis_rad
    and s.cod_tar = m.cod_tar
    and imp_tot_rec <> 0
-   --and est_sum = 'EC012'
+   and tip_rec <> 'TR502'
  group by s.cod_tar, desc_tar;
 
 select desc_tar "Tariff", l.obj_text "Activity", count(*) "Count"

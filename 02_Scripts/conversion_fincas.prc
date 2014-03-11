@@ -10,8 +10,21 @@ create or replace procedure conversion_fincas is
   ll_nif          number;
   ll_commit       number := 0;
   ls_cod_nas      varchar2(17);
-  ls_numero_aux   number := 0;
+  ls_numero_aux   varchar2(10);
   ls_program_name varchar2(15) := 'CP3_FINCAS';
+
+  function get_cod_nas(pll_cod_calle number) return varchar2 is
+    ls_var varchar2(17);
+  begin
+    select '0000' ||
+            lpad((select count(*) from fincas where cod_calle = ca.cod_calle),
+                 5, 0) || lpad(cod_calle, 4, 0) || lpad(cod_local, 4, 0)
+      into ls_var
+      from callejero ca
+     where cod_calle = pll_cod_calle;
+    return ls_var;
+  end get_cod_nas;
+
 begin
   select run_id.nextval into conversion_pck.gll_run_id from dual;
 
@@ -28,7 +41,8 @@ begin
       select sgc.nif.nextval into ll_nif from dual;
     
       --What the hell is this cod_nas????
-      ls_cod_nas := lpad(ll_nif, 17, 0);
+      ls_cod_nas    := get_cod_nas(lcur_fincas_rec.cod_calle); --lpad(ll_nif, 17, 0);
+      ls_numero_aux := substr(ls_cod_nas, 1, 10);
     
       if substr(lcur_fincas_rec.duplicador, 1, 1) <> '|' then
         lcur_fincas_rec.duplicador := '|' || lcur_fincas_rec.duplicador;
@@ -53,8 +67,9 @@ begin
          nvl(lcur_fincas_rec.num_puerta, 9999), lcur_fincas_rec.duplicador,
          lcur_fincas_rec.cod_unicom, lcur_fincas_rec.acc_finca, 'EF003',
          lcur_fincas_rec.tip_fin, lcur_fincas_rec.f_alta, 'IE002',
-         lcur_fincas_rec.f_baja, to_date(29991231, 'yyyymmdd'), 0, 0, 0, ' ',
-         ls_numero_aux, lcur_fincas_rec.cod_unicom, ' ', 0, 0, 0, 0,
+         lcur_fincas_rec.f_baja, to_date(29991231, 'yyyymmdd'), 0, 0, 0,
+         nvl(lcur_fincas_rec.ref_dir, ' '), ls_numero_aux,
+         lcur_fincas_rec.cod_unicom, ' ', 0, 0, 0, 0,
          lcur_fincas_rec.tip_cod, 'Undefined', lcur_fincas_rec.duplicador, 0,
          0, ls_cod_nas, 'Undefined', 999999999999, 999999999999, 'Undefined',
          'DD001', to_date(19000101, 'yyyymmdd'), ' ', ' ',

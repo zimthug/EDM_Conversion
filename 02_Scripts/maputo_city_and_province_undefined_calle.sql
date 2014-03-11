@@ -23,7 +23,7 @@ begin
     
       select max(cod_local) + 1 into ll_cod_local_maputo from localidades;
     
-      ls_nom_munic := 'UNDEFINED MAPUTO CIDADE';
+      ls_nom_munic := 'MAPUTO CIDADE';
     
     else
       select cod_depto
@@ -35,7 +35,7 @@ begin
     
       select max(cod_local) + 1 into ll_cod_local_matola from localidades;
     
-      ls_nom_munic := 'UNDEFINED MAPUTO PROVINCIA';
+      ls_nom_munic := 'MAPUTO PROV';
     end if;
   
     insert into municipios
@@ -95,9 +95,9 @@ begin
        ll_cod_depto,
        decode(ll_area, 1, ll_cod_munic_maputo, ll_cod_munic_matola),
        decode(ll_area, 1, ll_cod_local_maputo, ll_cod_local_matola),
-       'UNDEFINED CENTRE ' || x.centre, 'TV008', ll_cod_unicom,
+       'CENTRE ' || x.centre, 'TV008', ll_cod_unicom,
        ll_cod_unicom, 1, ' ', ll_cod_unicom, ' ', ll_cod_calle,
-       'UNDEFINED CENTRE ' || x.centre, 0);
+       'CENTRE ' || x.centre, 0);
   
     /*for k in (select o.rowid, cod_mask
                 from int_supply o

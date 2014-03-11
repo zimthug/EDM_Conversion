@@ -20,6 +20,14 @@ truncate table intfopen.personal;
 
 truncate table intfopen.sumcon;
 
+delete bonificaciones;
+
+truncate table sgc.rel_nis_rutafol;
+
+truncate table sgc.sumcon_log;
+
+truncate table sgc.account_assoc;
+
 truncate table sgc.recibos;
 
 truncate table sgc.hfacturacion;
@@ -96,7 +104,6 @@ truncate table sgc.sie_asientos;
 
 truncate table sgc.cobtemp;
 
-
 truncate table sgc.fincas_per_lect;
 
 truncate table intfopen.actividades;
@@ -121,7 +128,7 @@ truncate table intfopen.expedientes_sum;
 
 truncate table sgc.movcaja;
 
-
+/*
 delete sgc.municipios_lixo;
 
 delete deptos;
@@ -130,7 +137,7 @@ delete municipios;
 
 delete localidades;
 
-delete callejero;
+delete callejero;*/
 
 begin
   for x in (select *
