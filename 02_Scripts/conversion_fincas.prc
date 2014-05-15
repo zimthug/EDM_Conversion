@@ -5,28 +5,47 @@ create or replace procedure conversion_fincas is
      where nif is null
        and cod_tar is not null
        and cod_calle > 0
+       and cod_calle is not null
        and (est_sum = 'EC012' or
-           (est_sum like 'EC02%' and imp_tot_rec <> 0));
+           (est_sum like 'EC02%' and imp_tot_rec <> 0))
+     order by cod_calle;
+  --type lt_calle_count is table of number index by varchar2(64);
+  ll_num          number;
   ll_nif          number;
   ll_commit       number := 0;
+  ll_cod_ca       number := 0;
   ls_cod_nas      varchar2(17);
   ls_numero_aux   varchar2(10);
   ls_program_name varchar2(15) := 'CP3_FINCAS';
+  --lt_calle_rec    lt_calle_count;
 
-  function get_cod_nas(pll_cod_calle number) return varchar2 is
+  /*function get_cod_nas(pll_cod_calle number) return varchar2 is
+    ll_num number;
     ls_var varchar2(17);
   begin
-    select '0000' ||
-            lpad((select count(*) from fincas where cod_calle = ca.cod_calle),
-                 5, 0) || lpad(cod_calle, 4, 0) || lpad(cod_local, 4, 0)
+    ll_num := lt_calle_rec(pll_cod_calle) + 1;
+    select '0000' || lpad((ll_num \*select count(*) from fincas where cod_calle = ca.cod_calle*\
+                           ), 5, 0) || lpad(cod_calle, 4, 0) ||
+            lpad(cod_local, 4, 0)
       into ls_var
       from callejero ca
      where cod_calle = pll_cod_calle;
+  
+    lt_calle_rec(pll_cod_calle) := ll_num;
+  
     return ls_var;
-  end get_cod_nas;
+  end get_cod_nas;*/
 
 begin
   select run_id.nextval into conversion_pck.gll_run_id from dual;
+
+  /*for lcur_pop_rec in (select c.cod_calle,
+                              (select count(*)
+                                  from fincas
+                                 where cod_calle = c.cod_calle) cnt
+                         from callejero c) loop
+    lt_calle_rec(lcur_pop_rec.cod_calle) := lcur_pop_rec.cnt;
+  end loop;*/
 
   --Log first to begin the program
   conversion_pck.logger(p_run_id => conversion_pck.gll_run_id,
@@ -40,9 +59,24 @@ begin
     
       select sgc.nif.nextval into ll_nif from dual;
     
-      --What the hell is this cod_nas????
-      ls_cod_nas    := get_cod_nas(lcur_fincas_rec.cod_calle); --lpad(ll_nif, 17, 0);
+      if ll_cod_ca = lcur_fincas_rec.cod_calle then
+        ll_num := ll_num + 1;
+      else
+        select count(*) + 1
+          into ll_num
+          from fincas
+         where cod_calle = lcur_fincas_rec.cod_calle;
+      end if;
+    
+      select '0000' || lpad((ll_num), 5, 0) || lpad(cod_calle, 4, 0) ||
+              lpad(cod_local, 4, 0)
+        into ls_cod_nas
+        from callejero ca
+       where cod_calle = lcur_fincas_rec.cod_calle;
+    
       ls_numero_aux := substr(ls_cod_nas, 1, 10);
+    
+      ll_cod_ca := lcur_fincas_rec.cod_calle;
     
       if substr(lcur_fincas_rec.duplicador, 1, 1) <> '|' then
         lcur_fincas_rec.duplicador := '|' || lcur_fincas_rec.duplicador;
