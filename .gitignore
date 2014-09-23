@@ -1,7 +1,16 @@
-/03_Cadastramento
-/04_Prepayment
-/05_Galatee
-/06_Access
+/06_Cadastramento/
+/04_Prepayment/
+/03_Galatee/
+/04_Access
+/05_Eclipse/
+/07_Parameters_Conv/
+/15_Infrastructure_Work/
+/30_Docs/
+/pldoc-1.5.11
+APMEDIDA_PARAM_NUM_RUE_cmsuat_update*
 # ignore objects and archives, anywhere in the tree.
 *.[oa]
 *~*
+*.xls*
+*.doc*
+*.csv

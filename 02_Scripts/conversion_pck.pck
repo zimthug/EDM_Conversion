@@ -1,13 +1,13 @@
-create or replace package conversion_pck is
+CREATE OR REPLACE PACKAGE conversion_pck is
 
-  /** 
-  * <b>Project:</b>  OpenSGC Data Conversion Module  <a href="http://41.220.242.130:8080/browse/EMCMS">EDM Project</a> <br>    
+  /**
+  * <b>Project:</b>  OpenSGC Data Conversion Module  <a href="http://41.220.242.130:8080/browse/EMCMS">EDM Project</a> <br>
   * <b>Description:</b> This package will be used as the main data conversion package. It contains all the
   * necessary procedures and functions for converting data from EDM's current systems to the CMS.
-  * The package is used to convert the following systems to CMS.                 
+  * The package is used to convert the following systems to CMS.
   *        <li>Galatee to CMS</li>
   *        <li>Access to CMS </li>
-  *        <li>Eclipse to CMS</li>    
+  *        <li>Eclipse to CMS</li>
   * @author          tmlangeni@eservicios.indracompany.com
   * @version         edmconv_201312.beta
   */
@@ -94,7 +94,7 @@ create or replace package conversion_pck is
   procedure p07_reading_routes;
 
   /**
-  * 
+  *
   */
   --procedure p20_billing_galatee(pll_nis_rad in number default 0);
 
@@ -104,11 +104,11 @@ create or replace package conversion_pck is
 
 end conversion_pck;
 /
-create or replace package body conversion_pck is
+CREATE OR REPLACE PACKAGE BODY conversion_pck is
 
   gll_max_surname number := 25;
 
-  /** 
+  /**
   * Oracle PL/SQL type of record. This record will contain all the variables which will be used by the
   * {@link p02_int_supply_all} procedure.
   * @author tmlangeni@eservicios.indracompany.com
@@ -130,8 +130,8 @@ create or replace package body conversion_pck is
     acc_finca     varchar2(50),
     tip_fase      varchar2(5));
 
-  /** 
-   * 
+  /**
+   *
   */
   procedure logger(p_run_id       in number,
                    p_program_name in varchar2,
@@ -382,7 +382,7 @@ create or replace package body conversion_pck is
             ll_cod_calle := ll_cod_calle + 1;
           
             /*if lcur_callejero_rec.cod_unicom is null then
-              ll_cod_unicom := 8011;       
+              ll_cod_unicom := 8011;
             end if;*/
           
             ll_cod_unicom := lcur_callejero_rec.cod_unicom;
@@ -411,9 +411,9 @@ create or replace package body conversion_pck is
   end p01_geographical_structure;
 
   procedure split_long_names(pls_name in varchar2, names$ out name_rec) is
-    /** 
+    /**
     * Procedure to split customer names into first name, surname, other names and title.
-    * 
+    *
     * @author          tmlangeni@eservicios.indracompany.com
     */
     ls_name     varchar2(400);
@@ -657,10 +657,10 @@ create or replace package body conversion_pck is
 
   /**
   * <b>Procedure</b></br>
-  * Procedure to load the table INT_SUPPLY with the data from Galatee, Access and Eclipse. 
-  * INT_SUPPLY is the main staging table for creation of premise, customer, account, supply point 
-  * and service data for CMS. It is in this table where the data is 
-  * transformed and CMS equivalence codes are added to the data. 
+  * Procedure to load the table INT_SUPPLY with the data from Galatee, Access and Eclipse.
+  * INT_SUPPLY is the main staging table for creation of premise, customer, account, supply point
+  * and service data for CMS. It is in this table where the data is
+  * transformed and CMS equivalence codes are added to the data.
   *
   * @param gls_system_id This is varchar2 in. The valid values for this parameter are
   * <ul>
@@ -859,7 +859,7 @@ create or replace package body conversion_pck is
           ls_conso := '0000';
         end if;
       
-        --Get tariff and related items 
+        --Get tariff and related items
         if gls_system_id = '03' then
           lcur_data_rec$.tarif := '0';
         end if;
@@ -982,22 +982,42 @@ create or replace package body conversion_pck is
           end;
         elsif lcur_data_rec$.system_id = '02' then
           --Balance for Access customers
-          begin
+          if lcur_data_rec$.est_serv != 'EC012' then
+            select nvl(sum(valor - t.cobranca), 0)
+              into ll_imp_tot_rec
+              from edmaccess.transitado t
+             where codoperacao != '770'
+               and t.instalacao = to_number(lcur_data_rec$.client)
+               and t.zona = to_number(lcur_data_rec$.centre);
+          else
+            ll_imp_tot_rec := 0;
+          end if;
+          /*begin
             select nvl(sum(total_amount - total_paid), 0)
               into ll_imp_tot_rec
               from edmaccess.bill_extraction
              where zona = lcur_data_rec$.centre
                and no_da_instalacao = lcur_data_rec$.client;
-          end;
+          end;*/
         
           begin
             /*Security deposit bills */
-            select nvl(sum(deposit_amount), 0)
-              into ll_imp_deposito
-              from edmaccess.deposit_extraction
-             where deposit_status in ('PAID')
-               and zona = lcur_data_rec$.centre
-               and no_da_instalacao = lcur_data_rec$.client;
+            if lcur_data_rec$.est_serv = 'EC012' then
+              select nvl(sum(valor), 0)
+                into ll_imp_deposito
+                from edmaccess.transitado t
+               where codoperacao = '770'
+                 and t.instalacao = to_number(lcur_data_rec$.client)
+                 and t.zona = to_number(lcur_data_rec$.centre);
+            else
+              ll_imp_deposito := 0;
+            end if;
+            /*select nvl(sum(deposit_amount), 0)
+             into ll_imp_deposito
+             from edmaccess.deposit_extraction
+            where deposit_status in ('PAID')
+              and zona = lcur_data_rec$.centre
+              and no_da_instalacao = lcur_data_rec$.client;*/
           end;
         
         end if;
@@ -1021,15 +1041,19 @@ create or replace package body conversion_pck is
             into cadastramento$.cod_calle, cadastramento$.cod_unicom
             from callejero
            where nom_calle = 'UNDEFINED CENTRE ' || lcur_data_rec$.centre;
+        
         elsif lcur_data_rec$.system_id = '02' and
               cadastramento$.cod_calle is null then
-          select cod_calle, cod_unicom
-            into cadastramento$.cod_calle, cadastramento$.cod_unicom
-            from callejero
-           where cod_calle in
-                 (select cod_calle
-                    from edmaccess.undefined_callejero_zona
-                   where zona = lcur_data_rec$.centre);
+          cadastramento$.cod_calle  := null;
+          cadastramento$.cod_unicom := null;
+          /*select cod_calle, cod_unicom
+           into cadastramento$.cod_calle, cadastramento$.cod_unicom
+           from callejero
+          where cod_calle in
+                (select cod_calle
+                   from edmaccess.undefined_callejero_zona
+                  where zona = lcur_data_rec$.centre);*/
+        
         end if;
       
         if lcur_data_rec$.system_id = '02' and
@@ -1058,7 +1082,7 @@ create or replace package body conversion_pck is
         ls_est_sum := lcur_data_rec$.est_serv;
       
         /*
-        * Get the number of phases. Assumption is that all the COD_MASK 4096 customers are three 
+        * Get the number of phases. Assumption is that all the COD_MASK 4096 customers are three
         * phase unless specified otherwise in Cadastramento.
         */
         ls_tip_fase := cadastramento$.tip_fase;
@@ -1104,7 +1128,7 @@ create or replace package body conversion_pck is
 
   /**
   * @author TML
-  * 
+  *
   */
   procedure p03_int_meter_postpaid is
     cursor lcur_int_meter is
@@ -1127,11 +1151,16 @@ create or replace package body conversion_pck is
       union
       select '02' system_id, to_char(zona) centre,
              to_char(c.no_da_instalacao) client, '01' produit,
-             substr(trim(no_do_contador), 1, instr(no_do_contador, '/') - 1) compteur,
+             nvl(substr(trim(no_do_contador), 1,
+                         instr(no_do_contador, '/') - 1), no_do_contador),
              c.data_de_instalacao datepose
         from edmaccess.contador c
        where (to_char(zona), to_char(no_da_instalacao), '02') in
-             (select centre, client, system_id from int_supply);
+             (select centre, client, system_id from int_supply)
+         and not exists (select 0
+                from int_meter
+               where centre = c.zona
+                 and client = c.no_da_instalacao);
     lf_visit        date;
     ll_same         number;
     ll_conv_id      number;
@@ -1223,8 +1252,8 @@ create or replace package body conversion_pck is
     ls_num_apa  := ' ';
     ls_co_marca := ' ';
   
-    --check for duplicates. 
-    declare
+    --check for duplicates.
+    /*declare
       cursor lcur_duplicate is
         select m.*, m.rowid
           from int_meter m
@@ -1269,7 +1298,7 @@ create or replace package body conversion_pck is
         
         end loop;
       end loop;
-    end;
+    end;*/
   end p03_int_meter_postpaid;
 
   procedure p03_int_meter_prepaid is
@@ -1329,7 +1358,7 @@ create or replace package body conversion_pck is
     conversion_sumcon;
   end p04_run_phase3;
 
-  /** 
+  /**
    * This procedure is supposed to load current and historical meters for the services. This procedure should be
    * executed after {@link p03_int_meter_postpaid}
    *
@@ -1364,7 +1393,7 @@ create or replace package body conversion_pck is
          cod_almacen_destinado, f_cambio, f_return, test_lote)
       values
         (gls_usuario, trunc(sysdate), gls_programa, ls_num_lote, ' ',
-         'CM036', 0, ' ', 'CONVERTED MTRS', 3013, 3013, trunc(sysdate),
+         'CM036', 0, ' ', 'CONVERTED MTRS', 7100, 7100, trunc(sysdate),
          glf_fechanulla, ' ');
     exception
       when dup_val_on_index then
@@ -1431,7 +1460,7 @@ create or replace package body conversion_pck is
           values
             (gls_usuario, trunc(sysdate), gls_programa,
              lcur_main_rec.num_apa, lcur_main_rec.co_marca,
-             lcur_main_rec.co_modelo, lcur_main_rec.tip_apa, 'CM036', 3013,
+             lcur_main_rec.co_modelo, lcur_main_rec.tip_apa, 'CM036', 7100,
              lcur_main_rec.co_prop_apa, lcur_main_rec.f_fabric,
              glf_fechanulla, glf_fechanulla, ls_num_lote, ' ', ' ',
              lcur_main_rec.nis_rad, lcur_main_rec.nif, 1, ' ', ' ', 'AP011',
@@ -1533,11 +1562,11 @@ create or replace package body conversion_pck is
   end p05_apmedida_ap;
 
   procedure p06_readings_galatee is
-    /** 
+    /**
      * TML - 2013-09-20
-     * Readings Module   
+     * Readings Module
      * Run p20_billing_galatee first before running this one.
-     *  
+     *
      *%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     */
     cursor lcur_readings is
@@ -1647,7 +1676,7 @@ create or replace package body conversion_pck is
           (usuario, f_actual, programa, nis_rad, num_apa, co_marca,
            tip_csmo, lect, f_lect, csmo, cte, tip_lect, f_fact, dif_lect,
            sec_rec, num_rue, sec_lect, lect_ant, f_trat, co_al, cod_emp,
-           time_lect)
+           time_lect, dec_part)
         values
           (gls_usuario, trunc(sysdate), gls_programa,
            lcur_readings_rec.nis_rad, lcur_readings_rec.num_apa,
@@ -1656,7 +1685,7 @@ create or replace package body conversion_pck is
            lcur_readings_rec.conso, ll_cte, ls_tip_lect,
            lcur_readings_rec.dateevt,
            round(lcur_readings_rec.conso / ll_cte), 0, ll_num_rue, 0, 0,
-           lcur_readings_rec.dateevt, 'AN000', 0, 0);
+           lcur_readings_rec.dateevt, 'AN000', 0, 0, 0);
       
         if ll_nis_rad <> lcur_readings_rec.nis_rad then
           ll_commit := ll_commit + 1;
@@ -1681,7 +1710,7 @@ create or replace package body conversion_pck is
     p06_readings_cleanup;
   end p06_readings_galatee;
   /**
-   * 
+   *
    *
   */
   procedure p06_readings_access is
@@ -1743,7 +1772,7 @@ create or replace package body conversion_pck is
         ls_tip_csmo := 'CO111';
       elsif lcur_readings_rec.point = 1 and
             lcur_readings_rec.tip_apa <> 'TA101' then
-        ls_tip_csmo := 'CO111'; 
+        ls_tip_csmo := 'CO111';
       elsif lcur_readings_rec.point = 2 and
             lcur_readings_rec.tip_apa <> 'TA101' then
         ls_tip_csmo := 'CO331';
@@ -1778,7 +1807,7 @@ create or replace package body conversion_pck is
           (usuario, f_actual, programa, nis_rad, num_apa, co_marca,
            tip_csmo, lect, f_lect, csmo, cte, tip_lect, f_fact, dif_lect,
            sec_rec, num_rue, sec_lect, lect_ant, f_trat, co_al, cod_emp,
-           time_lect)
+           time_lect, dec_part)
         values
           (gls_usuario, trunc(sysdate), gls_programa,
            lcur_readings_rec.nis_rad, lcur_readings_rec.num_apa,
@@ -1787,7 +1816,7 @@ create or replace package body conversion_pck is
            lcur_readings_rec.conso, ll_cte, ls_tip_lect,
            lcur_readings_rec.dateevt,
            round(lcur_readings_rec.conso / ll_cte), 0, ll_num_rue, 0, 0,
-           lcur_readings_rec.dateevt, 'AN000', 0, 0);
+           lcur_readings_rec.dateevt, 'AN000', 0, 0, 0);
       
         if ll_nis_rad <> lcur_readings_rec.nis_rad then
           ll_commit := ll_commit + 1;
@@ -1814,8 +1843,8 @@ create or replace package body conversion_pck is
   procedure p06_readings_cleanup is
     /**
      * TML - 2013-09-20
-     * Readings Module   
-     *  
+     * Readings Module
+     *
      *
     */
   begin
@@ -2054,19 +2083,19 @@ create or replace package body conversion_pck is
   * <li>RECIBOS</li>
   * <li>HFACTURACION</li>
   * <li>IMP_CONCEPTO</li>
-  * <li>EST_REC</li> 
+  * <li>EST_REC</li>
   * A historical load of past 24 months bills will be loaded to these tables. If any customer has a bill older
   * than the bills for the 24 months then a 25th month bill will be created with a consolidated sum of all the
   * 25+ months bills. <br/>
   * <b><u>Rules Used</u></b>
   * <ul>Historical bills of 24 months will be converted with status either paid or sent to customer.</ul>
-  * <ul>If bill is not fully paid (partially paid or no payment at all) then it will have status 
+  * <ul>If bill is not fully paid (partially paid or no payment at all) then it will have status
   * "SENT TO CUSTOMER" and the paid amount will reflect
   * in <i>RECIBOS</i> as such.</ul>
   * <ul>Fully paid bills will have status "PAID" and the bill amount will be equal to amount paid.</ul>
   * @author     tmlangeni@eservicios.indracompany.com
-  * @param     pll_nis_rad IN NUMBER DEFAULT 0 - Can be specified if we have a particular 
-  *                          service to convert its bills but left blank for all services.             
+  * @param     pll_nis_rad IN NUMBER DEFAULT 0 - Can be specified if we have a particular
+  *                          service to convert its bills but left blank for all services.
   */
   /*procedure p20_billing_galatee(pll_nis_rad in number default 0) is
   
@@ -2173,13 +2202,13 @@ create or replace package body conversion_pck is
   
     for lcur_bill_rec in lcur_bill loop
       begin
-      
+  
         lf_fact        := lcur_bill_rec.dfac;
         ls_tip_rec     := 'TR110';
         ll_excess      := 1;
         ll_imp_cta     := lcur_bill_rec.paid;
         ll_imp_tot_rec := lcur_bill_rec.bill_amount;
-      
+  
         if lcur_bill_rec.bill_amount - lcur_bill_rec.paid > 0 then
           ls_est_act := 'ER020';
         elsif lcur_bill_rec.bill_amount - lcur_bill_rec.paid < 0 then
@@ -2190,9 +2219,9 @@ create or replace package body conversion_pck is
         else
           ls_est_act := 'ER310';
         end if;
-      
+  
         for ll_credit in 1 .. ll_excess loop
-        
+  
           if ll_credit = 2 then
             ls_tip_rec     := 'TR502';
             ll_imp_cta     := lcur_bill_rec.paid -
@@ -2200,16 +2229,16 @@ create or replace package body conversion_pck is
             ll_imp_tot_rec := lcur_bill_rec.paid -
                               lcur_bill_rec.bill_amount;
           end if;
-        
+  
           update sumcon
              set sec_factura = sec_factura + 1
            where nis_rad = lcur_bill_rec.nis_rad
           returning sec_factura into ll_factura;
-        
+  
           ll_cod_ref := lcur_bill_rec.nis_rad || lpad(ll_factura, 3, '0');
-        
+  
           --lf_proc_cobro := ;
-        
+  
           if ls_est_act = 'ER310' then
             select nvl(max(denr), trunc(sysdate))
               into lf_proc_cobro
@@ -2222,21 +2251,21 @@ create or replace package body conversion_pck is
           else
             lf_proc_cobro := glf_fechanulla;
           end if;
-        
+  
           \*select count(*) + 1
            into ll_sec_rec
            from recibos
           where nis_rad = lcur_bill_rec.nis_rad
             and sec_nis = lcur_bill_rec.sec_nis
             and f_fact = lf_fact;*\
-        
+  
           if lcur_bill_rec.nis_rad = ll_nis_rad_p and
              lcur_bill_rec.sec_nis = ll_sec_nis_p and lf_fact = lf_fact_p then
             ll_sec_rec := ll_sec_rec + 1;
           else
             ll_sec_rec := 1;
           end if;
-        
+  
           insert into recibos
             (usuario, f_actual, programa, sec_rec, nis_rad, sec_nis, f_fact,
              imp_tot_rec, est_act, f_est_act, cod_cli, sec_cta, op_cambest,
@@ -2272,25 +2301,25 @@ create or replace package body conversion_pck is
              2, glf_fechanulla, 0, 0, 0, 0, glf_fechanulla, 1, ll_cod_ref,
              lcur_bill_rec.cod_mask, ll_imp_tot_rec, 0, glf_fechanulla,
              glf_fechanulla, 0, 0, 0, 0, 0, 'IT000', 2, ' ');
-        
+  
           lf_fact_p    := lf_fact;
           ll_sec_nis_p := lcur_bill_rec.sec_nis;
           ll_nis_rad_p := lcur_bill_rec.nis_rad;
-        
+  
           if ll_credit = 1 and ls_tip_rec in ('TR110') then
-          
+  
             if lcur_bill_rec.dfac_prev = to_date(29991231, 'YYYYMMDD') then
               lf_previous_date := lcur_bill_rec.f_alta;
             else
               lf_previous_date := lcur_bill_rec.dfac_prev;
             end if;
-          
+  
             \*select nvl(max(f_fact), glf_fechanulla)
              into lf_previous_date
              from hfacturacion
             where nis_rad = lcur_bill_rec.nis_rad
             and sec_nis = lcur_bill_rec.sec_nis    ;*\
-          
+  
             insert into hfacturacion
               (usuario, f_actual, programa, sec_rec, nis_rad, sec_nis,
                f_fact, csmo_fact, pot_fact, imp_fact, f_fact_sust, ind_rest,
@@ -2310,7 +2339,7 @@ create or replace package body conversion_pck is
                lf_fact, lf_previous_date, 0, 'CU001', 'TR110',
                ll_imp_tot_rec, lcur_bill_rec.periode, 'PF012');
           end if;
-        
+  
           insert into est_rec
             (usuario, f_actual, programa, sec_rec, nis_rad, sec_nis, f_fact,
              sec_est_rec, est_rec, f_inc_est, desc_est_rec)
@@ -2319,13 +2348,13 @@ create or replace package body conversion_pck is
              lcur_bill_rec.nis_rad, lcur_bill_rec.sec_nis, lf_fact, 1,
              ls_est_act,
              decode(ls_est_act, 'ER020', lf_fact, trunc(sysdate)), ' ');
-        
+  
           if ll_credit = 2 then
             ll_sec_concepto := 1;
             ls_co_concepto  := 'VA502';
             ll_paid         := ll_imp_tot_rec;
             ll_imp_concepto := ll_imp_tot_rec;
-          
+  
             insert into imp_concepto
               (usuario, f_actual, programa, sec_rec, nis_rad, sec_nis,
                f_fact, co_concepto, sec_concepto, csmo_fact, prec_concepto,
@@ -2337,19 +2366,19 @@ create or replace package body conversion_pck is
                lcur_bill_rec.nis_rad, lcur_bill_rec.sec_nis, lf_fact,
                ls_co_concepto, ll_sec_concepto, 0, 0, ll_imp_concepto, 0,
                ll_imp_concepto, 0, 0, 1, ' ', ll_paid, ' ', ' ', 0, 0);
-          
+  
             --end if;
-          
+  
             --end loop;
             --Concepts
           else
             ll_payconc := lcur_bill_rec.paid;
-          
+  
             ll_sec_concepto := 0;
-          
+  
             for i in 1 .. 7 loop
               ll_sec_concepto := ll_sec_concepto + 1;
-            
+  
               if i = 1 then
                 ls_co_concepto  := 'CC500';
                 ll_imp_concepto := lcur_bill_rec.bill_tax;
@@ -2372,9 +2401,9 @@ create or replace package body conversion_pck is
                 ls_co_concepto  := 'CC360';
                 ll_imp_concepto := lcur_bill_rec.potencia;
               end if;
-            
+  
               ll_tot_imp_concepto := ll_tot_imp_concepto + ll_imp_concepto;
-            
+  
               if ll_payconc > 0 then
                 if ll_payconc > ll_imp_concepto then
                   ll_paid    := ll_imp_concepto;
@@ -2386,9 +2415,9 @@ create or replace package body conversion_pck is
               else
                 ll_paid := 0;
               end if;
-            
+  
               ll_imp_concepto := nvl(ll_imp_concepto, 0);
-            
+  
               if ll_imp_concepto <> 0 then
                 insert into imp_concepto
                   (usuario, f_actual, programa, sec_rec, nis_rad, sec_nis,
@@ -2401,23 +2430,23 @@ create or replace package body conversion_pck is
                    lcur_bill_rec.nis_rad, lcur_bill_rec.sec_nis, lf_fact,
                    ls_co_concepto, ll_sec_concepto, 0, 0, ll_imp_concepto, 0,
                    ll_imp_concepto, 0, 0, 1, ' ', ll_paid, ' ', ' ', 0, 0);
-              
+  
               end if;
-            
+  
             end loop;
-          
+  
           end if;
-        
+  
         end loop;
-      
+  
         if ll_cnis_rad <> lcur_bill_rec.nis_rad then
           ll_commit := ll_commit + 1;
-        
+  
           if mod(ll_commit, 1000) = 0 then
             commit;
           end if;
         end if;
-      
+  
         ll_cnis_rad := lcur_bill_rec.nis_rad;
       exception
         when others then
@@ -2430,7 +2459,7 @@ create or replace package body conversion_pck is
     end loop;
     commit;
   
-    --Cod_Ref Updates    
+    --Cod_Ref Updates
     update recibos
        set cod_ref = to_char(cod_ref) ||
                       substr(to_char(11 -
@@ -2518,13 +2547,13 @@ create or replace package body conversion_pck is
   
     for lcur_bill_rec in lcur_bill loop
       begin
-      
+  
         lf_fact        := lcur_bill_rec.dfac;
         ls_tip_rec     := 'TR110';
         ll_excess      := 1;
         ll_imp_cta     := lcur_bill_rec.paid;
         ll_imp_tot_rec := lcur_bill_rec.bill_amount;
-      
+  
         if lcur_bill_rec.bill_amount - lcur_bill_rec.paid > 0 then
           ls_est_act := 'ER020';
         elsif lcur_bill_rec.bill_amount - lcur_bill_rec.paid < 0 then
@@ -2535,9 +2564,9 @@ create or replace package body conversion_pck is
         else
           ls_est_act := 'ER310';
         end if;
-      
+  
         for ll_credit in 1 .. ll_excess loop
-        
+  
           if ll_credit = 2 then
             ls_tip_rec     := 'TR502';
             ll_imp_cta     := lcur_bill_rec.paid -
@@ -2545,16 +2574,16 @@ create or replace package body conversion_pck is
             ll_imp_tot_rec := lcur_bill_rec.paid -
                               lcur_bill_rec.bill_amount;
           end if;
-        
+  
           update sumcon
              set sec_factura = sec_factura + 1
            where nis_rad = lcur_bill_rec.nis_rad
           returning sec_factura into ll_factura;
-        
+  
           ll_cod_ref := lcur_bill_rec.nis_rad || lpad(ll_factura, 3, '0');
-        
+  
           --lf_proc_cobro := ;
-        
+  
           if ls_est_act = 'ER310' then
             select nvl(max(denr), trunc(sysdate))
               into lf_proc_cobro
@@ -2567,21 +2596,21 @@ create or replace package body conversion_pck is
           else
             lf_proc_cobro := glf_fechanulla;
           end if;
-        
+  
           \*select count(*) + 1
            into ll_sec_rec
            from recibos
           where nis_rad = lcur_bill_rec.nis_rad
             and sec_nis = lcur_bill_rec.sec_nis
             and f_fact = lf_fact;*\
-        
+  
           if lcur_bill_rec.nis_rad = ll_nis_rad_p and
              lcur_bill_rec.sec_nis = ll_sec_nis_p and lf_fact = lf_fact_p then
             ll_sec_rec := ll_sec_rec + 1;
           else
             ll_sec_rec := 1;
           end if;
-        
+  
           insert into recibos
             (usuario, f_actual, programa, sec_rec, nis_rad, sec_nis, f_fact,
              imp_tot_rec, est_act, f_est_act, cod_cli, sec_cta, op_cambest,
@@ -2617,25 +2646,25 @@ create or replace package body conversion_pck is
              2, glf_fechanulla, 0, 0, 0, 0, glf_fechanulla, 1, ll_cod_ref,
              lcur_bill_rec.cod_mask, ll_imp_tot_rec, 0, glf_fechanulla,
              glf_fechanulla, 0, 0, 0, 0, 0, 'IT000', 2, ' ');
-        
+  
           lf_fact_p    := lf_fact;
           ll_sec_nis_p := lcur_bill_rec.sec_nis;
           ll_nis_rad_p := lcur_bill_rec.nis_rad;
-        
+  
           if ll_credit = 1 and ls_tip_rec in ('TR110') then
-          
+  
             if lcur_bill_rec.dfac_prev = to_date(29991231, 'YYYYMMDD') then
               lf_previous_date := lcur_bill_rec.f_alta;
             else
               lf_previous_date := lcur_bill_rec.dfac_prev;
             end if;
-          
+  
             \*select nvl(max(f_fact), glf_fechanulla)
              into lf_previous_date
              from hfacturacion
             where nis_rad = lcur_bill_rec.nis_rad
             and sec_nis = lcur_bill_rec.sec_nis    ;*\
-          
+  
             insert into hfacturacion
               (usuario, f_actual, programa, sec_rec, nis_rad, sec_nis,
                f_fact, csmo_fact, pot_fact, imp_fact, f_fact_sust, ind_rest,
@@ -2655,7 +2684,7 @@ create or replace package body conversion_pck is
                lf_fact, lf_previous_date, 0, 'CU001', 'TR110',
                ll_imp_tot_rec, lcur_bill_rec.periode, 'PF012');
           end if;
-        
+  
           insert into est_rec
             (usuario, f_actual, programa, sec_rec, nis_rad, sec_nis, f_fact,
              sec_est_rec, est_rec, f_inc_est, desc_est_rec)
@@ -2664,13 +2693,13 @@ create or replace package body conversion_pck is
              lcur_bill_rec.nis_rad, lcur_bill_rec.sec_nis, lf_fact, 1,
              ls_est_act,
              decode(ls_est_act, 'ER020', lf_fact, trunc(sysdate)), ' ');
-        
+  
           if ll_credit = 2 then
             ll_sec_concepto := 1;
             ls_co_concepto  := 'VA502';
             ll_paid         := ll_imp_tot_rec;
             ll_imp_concepto := ll_imp_tot_rec;
-          
+  
             insert into imp_concepto
               (usuario, f_actual, programa, sec_rec, nis_rad, sec_nis,
                f_fact, co_concepto, sec_concepto, csmo_fact, prec_concepto,
@@ -2682,19 +2711,19 @@ create or replace package body conversion_pck is
                lcur_bill_rec.nis_rad, lcur_bill_rec.sec_nis, lf_fact,
                ls_co_concepto, ll_sec_concepto, 0, 0, ll_imp_concepto, 0,
                ll_imp_concepto, 0, 0, 1, ' ', ll_paid, ' ', ' ', 0, 0);
-          
+  
             --end if;
-          
+  
             --end loop;
             --Concepts
           else
             ll_payconc := lcur_bill_rec.paid;
-          
+  
             ll_sec_concepto := 0;
-          
+  
             for i in 1 .. 7 loop
               ll_sec_concepto := ll_sec_concepto + 1;
-            
+  
               if i = 1 then
                 ls_co_concepto  := 'CC500';
                 ll_imp_concepto := lcur_bill_rec.bill_tax;
@@ -2717,9 +2746,9 @@ create or replace package body conversion_pck is
                 ls_co_concepto  := 'CC360';
                 ll_imp_concepto := lcur_bill_rec.potencia;
               end if;
-            
+  
               ll_tot_imp_concepto := ll_tot_imp_concepto + ll_imp_concepto;
-            
+  
               if ll_payconc > 0 then
                 if ll_payconc > ll_imp_concepto then
                   ll_paid    := ll_imp_concepto;
@@ -2731,9 +2760,9 @@ create or replace package body conversion_pck is
               else
                 ll_paid := 0;
               end if;
-            
+  
               ll_imp_concepto := nvl(ll_imp_concepto, 0);
-            
+  
               if ll_imp_concepto <> 0 then
                 insert into imp_concepto
                   (usuario, f_actual, programa, sec_rec, nis_rad, sec_nis,
@@ -2746,23 +2775,23 @@ create or replace package body conversion_pck is
                    lcur_bill_rec.nis_rad, lcur_bill_rec.sec_nis, lf_fact,
                    ls_co_concepto, ll_sec_concepto, 0, 0, ll_imp_concepto, 0,
                    ll_imp_concepto, 0, 0, 1, ' ', ll_paid, ' ', ' ', 0, 0);
-              
+  
               end if;
-            
+  
             end loop;
-          
+  
           end if;
-        
+  
         end loop;
-      
+  
         if ll_cnis_rad <> lcur_bill_rec.nis_rad then
           ll_commit := ll_commit + 1;
-        
+  
           if mod(ll_commit, 1000) = 0 then
             commit;
           end if;
         end if;
-      
+  
         ll_cnis_rad := lcur_bill_rec.nis_rad;
       exception
         when others then
@@ -2775,7 +2804,7 @@ create or replace package body conversion_pck is
     end loop;
     commit;
   
-    --Cod_Ref Updates    
+    --Cod_Ref Updates
     update recibos
        set cod_ref = to_char(cod_ref) ||
                       substr(to_char(11 -
@@ -2901,7 +2930,7 @@ create or replace package body conversion_pck is
              'RA003' tip_lect, to_date(20130901, 'yyyymmdd') f_fact,
              0 dif_lect, 1 sec_rec, 5 num_rue, 1 sec_lect, 0 lect_ant,
              to_date(20130901, 'yyyymmdd') f_trat, 'AN000' co_al, 0 cod_emp,
-             0 time_lect
+             0 time_lect, 0
         from apmedida_ap ap, csmo_apa cs
        where ap.tip_apa = cs.tip_apa
          and not exists (select 0

@@ -1,4 +1,4 @@
-create or replace procedure conversion_cuentas_cu is
+CREATE OR REPLACE PROCEDURE conversion_cuentas_cu is
   cursor lcur_cuentas_cu is
     select *
       from int_supply s
@@ -47,10 +47,10 @@ begin
          lcur_cuentas_cu_rec.cod_calle,
          nvl(lcur_cuentas_cu_rec.num_puerta, 0),
          lcur_cuentas_cu_rec.duplicador, ' ', ll_tip_cta, 1, ll_tip_env,
-         ll_co_mod_env, to_date('29991231', 'yyyymmdd'), 1, ' ',
-         ll_co_calidad_cuenta, ' ', ' ', 2, 0, 0, 0, 2, '  ', 2, ' ', 0,
-         trunc(sysdate), 1, ll_cod_ministry, ll_tip_corte,
-         to_date('19000101', 'yyyymmdd'), 0);
+         ll_co_mod_env, lcur_cuentas_cu_rec.f_alta
+         /*to_date('29991231', 'yyyymmdd')*/, 1, ' ', ll_co_calidad_cuenta,
+         ' ', ' ', 2, 0, 0, 0, 2, '  ', 2, ' ', 0, trunc(sysdate), 1,
+         ll_cod_ministry, ll_tip_corte, to_date('19000101', 'yyyymmdd'), 0);
     
       update int_supply
          set sec_cta = ll_sec_cta

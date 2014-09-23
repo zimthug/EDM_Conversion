@@ -1,4 +1,4 @@
-create or replace procedure conversion_fincas is
+CREATE OR REPLACE PROCEDURE conversion_fincas is
   cursor lcur_fincas is
     select *
       from int_supply
@@ -68,11 +68,13 @@ begin
          where cod_calle = lcur_fincas_rec.cod_calle;
       end if;
     
-      select '0000' || lpad((ll_num), 5, 0) || lpad(cod_calle, 4, 0) ||
-              lpad(cod_local, 4, 0)
-        into ls_cod_nas
-        from callejero ca
-       where cod_calle = lcur_fincas_rec.cod_calle;
+      /*select '0000' || lpad((ll_num), 5, 0) || lpad(cod_calle, 4, 0) ||
+             lpad(cod_local, 4, 0)
+       into ls_cod_nas
+       from callejero ca
+      where cod_calle = lcur_fincas_rec.cod_calle;*/
+    
+      ls_cod_nas := ll_nif;
     
       ls_numero_aux := substr(ls_cod_nas, 1, 10);
     

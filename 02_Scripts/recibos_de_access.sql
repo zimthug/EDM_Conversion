@@ -1,26 +1,63 @@
-create or replace procedure conversion_billing(pll_nis_rad   in number default 0,
-                                               pls_system_id in number default null) is
+declare
   cursor lcur_bill is
-  /*select gb.*, '01' system_id
-                      from galatee_bill_extraction gb
-                     where not exists (select 0 from recibos where nis_rad = gb.nis_rad)
-                    union all
-                    select ab.*, '02'
-                      from access_bill_extraction ab
-                     where not exists (select 0 from recibos where nis_rad = ab.nis_rad);*/
-    select facture, dfac, dfac_prev, sp.nis_rad, sp.sec_nis, sp.cod_tar,
-           sp.cod_unicom, bill_amount, bill_tax, sp.gr_concepto, sp.cod_mask,
-           sp.tip_cli, sp.sec_cta, sp.cod_cli, paid, energy, fixed_charge,
-           radio, garbage_charge, loses, potencia, periode, sp.f_alta,
-           sp.system_id
-      from ciclo6_galatee_bill_extraction cs, int_supply sp
-     where cs.nis_rad = sp.nis_rad
-       and not exists
-     (select 0 from recibos where nis_rad = cs.nis_rad)
-    union all
-    select ab.*, '02'
-      from access_bill_extraction ab
-     where not exists (select 0 from recibos where nis_rad = ab.nis_rad);
+  /* select to_char(tr.mes_ano, 'yyyymmdd') facture, tr.zona, tr.instalacao,
+             tr.mes_ano dfac, tr.iva bill_tax, tr.taxaradio radio,
+             tr.taxalixo garbage_charge, tr.taxafixa fixed_charge,
+             tr.valor energy, tr.valor bill_amount, 0 loses, tr.cobranca paid,
+             sp.nis_rad, sec_nis, 0 potencia,
+             add_months(tr.mes_ano, -1) dfac_prev, sp.cod_tar, sp.tip_cli,
+             cod_cli, sp.cod_mask, sp.cod_unicom,
+             to_char(tr.mes_ano, 'yyyymm') periode, gr_concepto, sec_cta,
+             sp.f_alta, tr.valor, tr.cobranca, 'TR110' tip_rec,
+             tr.datacobranca
+        from edmaccess.transitado tr, int_supply sp
+       where exists (select *
+                from edmaccess.xaixai_balances
+               where nis_rad = sp.nis_rad
+                 and mes_ano = tr.mes_ano
+                 and codoperacao = tr.codoperacao)
+         and to_char(tr.zona) = sp.centre
+         and to_char(tr.instalacao) = sp.client
+         and tr.codoperacao in (500, 503, 504, 660);*/
+  
+    select to_char(fa.mes_ano, 'yyyymmdd') facture, fa.zona, fa.instalacao,
+           fa.mes_ano dfac, fa.leitura, fa.leiturarea, fa.potencia_tomada,
+           fa.kwh, fa.kwhrea, fa.energia_facturada, fa.energia_facturadarea,
+           fa.potencia_facturada potencia, fa.valor_cobrada, fa.iva bill_tax,
+           fa.taxaradio radio, fa.taxalixo garbage_charge,
+           fa.taxafixa fixed_charge, fa.diferenca energy,
+           tr.valor bill_amount, 0 loses, tr.cobranca paid, sp.nis_rad,
+           sec_nis, mt.tip_apa,
+           nvl(lag(fa.mes_ano, 1)
+                over(partition by sp.nis_rad order by sp.nis_rad, fa.mes_ano),
+                to_date(29991231, 'yyyymmdd')) dfac_prev, sp.cod_tar,
+           sp.tip_cli, cod_cli, sp.cod_mask, sp.cod_unicom,
+           to_char(fa.mes_ano, 'yyyymm') periode, gr_concepto, sec_cta,
+           sp.f_alta, tr.datacobranca
+      from edmaccess.facturacao fa, edmaccess.transitado tr, int_meter mt,
+           int_supply sp
+     where fa.instalacao = tr.instalacao
+       and fa.zona = tr.zona
+       and fa.mes_ano = tr.mes_ano
+       and tr.opedescricao = 'Feg'
+          --and fa.mes_ano > add_months(sysdate, -24)
+       and mt.client = sp.client
+       and mt.centre = sp.centre
+       and tr.zona = mt.centre
+       and tr.instalacao = mt.client
+       and sp.nis_rad is not null
+       and tr.valor = tr.cobranca
+          --and tr.zona = 21 and tr.instalacao = 6500
+       /*and exists (select 0
+              from apmedida_co
+             where nis_rad = sp.nis_rad
+               and f_lect = fa.mes_ano)*/
+       and not exists (select 0
+              from recibos
+             where nis_rad = sp.nis_rad
+               and f_fact = fa.mes_ano
+               and sec_nis = 1
+               and sec_rec = sec_rec);
   lf_proc_cobro       date;
   lf_previous_date    date;
   lf_fact             date;
@@ -93,14 +130,7 @@ begin
         --lf_proc_cobro := ;
       
         if ls_est_act = 'ER310' then
-          select nvl(max(denr), trunc(sysdate))
-            into lf_proc_cobro
-            from edmgalatee.lclient
-           where ndoc = lcur_bill_rec.facture
-             and (centre, client, ordre) =
-                 (select centre, client, ordre
-                    from int_supply
-                   where nis_rad = lcur_bill_rec.nis_rad);
+          lf_proc_cobro := lcur_bill_rec.datacobranca;
         else
           lf_proc_cobro := conversion_pck.glf_fechanulla;
         end if;
@@ -118,6 +148,33 @@ begin
         else
           ll_sec_rec := 1;
         end if;
+      
+        /* begin
+          select fa.potencia_tomada potencia, fa.iva bill_tax,
+                 fa.taxaradio radio, fa.taxalixo garbage_charge,
+                 fa.taxafixa fixed_charge, fa.diferenca energy
+            into lcur_bill_rec.potencia, lcur_bill_rec.bill_tax,
+                 lcur_bill_rec.radio, lcur_bill_rec.garbage_charge,
+                 lcur_bill_rec.fixed_charge, lcur_bill_rec.energy
+            from edmaccess.facturacao fa
+           where zona = 20
+             and instalacao = 200;
+        exception
+          when no_data_found then
+            lcur_bill_rec.potencia       := 0;
+            lcur_bill_rec.bill_tax       := 0;
+            lcur_bill_rec.radio          := 0;
+            lcur_bill_rec.garbage_charge := 0;
+            lcur_bill_rec.fixed_charge   := 0;
+            lcur_bill_rec.energy         := 0;
+          when too_many_rows then
+            lcur_bill_rec.potencia       := 0;
+            lcur_bill_rec.bill_tax       := 0;
+            lcur_bill_rec.radio          := 0;
+            lcur_bill_rec.garbage_charge := 0;
+            lcur_bill_rec.fixed_charge   := 0;
+            lcur_bill_rec.energy         := 0;
+        end;*/
       
         insert into recibos
           (usuario, f_actual, programa, sec_rec, nis_rad, sec_nis, f_fact,
@@ -339,8 +396,8 @@ begin
                                        (to_number(substr(to_char(cod_ref), 11,
                                                           1)) * 6) +
                                        (to_number(substr(to_char(cod_ref), 12,
-                                                          1)) * 7)), 11)), -1);
+                                                          1)) * 7)), 11)), -1)
+   where length(cod_ref) = 11;
 
   commit;
 end conversion_billing;
-/

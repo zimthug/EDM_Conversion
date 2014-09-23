@@ -1,26 +1,16 @@
-create or replace procedure conversion_billing(pll_nis_rad   in number default 0,
-                                               pls_system_id in number default null) is
+create or replace procedure conversion_billing_nobills is
   cursor lcur_bill is
-  /*select gb.*, '01' system_id
-                      from galatee_bill_extraction gb
-                     where not exists (select 0 from recibos where nis_rad = gb.nis_rad)
-                    union all
-                    select ab.*, '02'
-                      from access_bill_extraction ab
-                     where not exists (select 0 from recibos where nis_rad = ab.nis_rad);*/
-    select facture, dfac, dfac_prev, sp.nis_rad, sp.sec_nis, sp.cod_tar,
-           sp.cod_unicom, bill_amount, bill_tax, sp.gr_concepto, sp.cod_mask,
-           sp.tip_cli, sp.sec_cta, sp.cod_cli, paid, energy, fixed_charge,
-           radio, garbage_charge, loses, potencia, periode, sp.f_alta,
+    select '00000' facture, trunc(f_alta) dfac, trunc(f_alta) dfac_prev,
+           sp.nis_rad, sp.sec_nis, sp.cod_tar, sp.cod_unicom, 0 bill_amount,
+           0 bill_tax, sp.gr_concepto, sp.cod_mask, sp.tip_cli, sp.sec_cta,
+           sp.cod_cli, 0 paid, 0 energy, 0 fixed_charge, 0 radio,
+           0 garbage_charge, 0 loses, 0 potencia,
+           to_char(sp.f_alta, 'yyyymm') periode, trunc(sp.f_alta) f_alta,
            sp.system_id
-      from ciclo6_galatee_bill_extraction cs, int_supply sp
-     where cs.nis_rad = sp.nis_rad
+      from int_supply sp
+     where nis_rad is not null
        and not exists
-     (select 0 from recibos where nis_rad = cs.nis_rad)
-    union all
-    select ab.*, '02'
-      from access_bill_extraction ab
-     where not exists (select 0 from recibos where nis_rad = ab.nis_rad);
+     (select * from recibos where nis_rad = sp.nis_rad);
   lf_proc_cobro       date;
   lf_previous_date    date;
   lf_fact             date;
@@ -90,9 +80,9 @@ begin
       
         ll_cod_ref := lcur_bill_rec.nis_rad || lpad(ll_factura, 3, '0');
       
-        --lf_proc_cobro := ;
+        lf_proc_cobro := lcur_bill_rec.dfac;
       
-        if ls_est_act = 'ER310' then
+        /*if ls_est_act = 'ER310' then
           select nvl(max(denr), trunc(sysdate))
             into lf_proc_cobro
             from edmgalatee.lclient
@@ -103,7 +93,7 @@ begin
                    where nis_rad = lcur_bill_rec.nis_rad);
         else
           lf_proc_cobro := conversion_pck.glf_fechanulla;
-        end if;
+        end if;*/
       
         /*select count(*) + 1
          into ll_sec_rec
@@ -200,93 +190,93 @@ begin
            ls_est_act, decode(ls_est_act, 'ER020', lf_fact, trunc(sysdate)),
            ' ');
       
-        if ll_credit = 2 then
-          ll_sec_concepto := 1;
-          ls_co_concepto  := 'VA502';
-          ll_paid         := ll_imp_tot_rec;
-          ll_imp_concepto := ll_imp_tot_rec;
-        
-          insert into imp_concepto
-            (usuario, f_actual, programa, sec_rec, nis_rad, sec_nis, f_fact,
-             co_concepto, sec_concepto, csmo_fact, prec_concepto,
-             imp_concepto, porc_concepto, base_calc_imp, ind_diff, imp_iva,
-             ind_pago, desc_pago, imp_cta_cto, nir_srv, nir_asoc, imp_used,
-             ind_arrear)
-          values
-            (gls_usuario, trunc(sysdate), gls_programa, ll_sec_rec,
-             lcur_bill_rec.nis_rad, lcur_bill_rec.sec_nis, lf_fact,
-             ls_co_concepto, ll_sec_concepto, 0, 0, ll_imp_concepto, 0,
-             ll_imp_concepto, 0, 0, 1, ' ', ll_paid, ' ', ' ', 0, 0);
-        
-          --end if;
-        
-          --end loop;
-          --Concepts
-        else
-          ll_payconc := lcur_bill_rec.paid;
-        
-          ll_sec_concepto := 0;
-        
-          for i in 1 .. 7 loop
-            ll_sec_concepto := ll_sec_concepto + 1;
-          
-            if i = 1 then
-              ls_co_concepto  := 'CC500';
-              ll_imp_concepto := lcur_bill_rec.bill_tax;
-            elsif i = 2 then
-              ls_co_concepto  := 'CC120';
-              ll_imp_concepto := lcur_bill_rec.radio;
-            elsif i = 3 then
-              ls_co_concepto  := 'CC100';
-              ll_imp_concepto := lcur_bill_rec.fixed_charge;
-            elsif i = 4 then
-              ls_co_concepto  := 'CC130';
-              ll_imp_concepto := lcur_bill_rec.garbage_charge;
-            elsif i = 5 then
-              ls_co_concepto  := 'CC261';
-              ll_imp_concepto := lcur_bill_rec.energy;
-            elsif i = 6 then
-              ls_co_concepto  := 'CC230';
-              ll_imp_concepto := lcur_bill_rec.loses;
-            elsif i = 7 then
-              ls_co_concepto  := 'CC360';
-              ll_imp_concepto := lcur_bill_rec.potencia;
-            end if;
-          
-            ll_tot_imp_concepto := ll_tot_imp_concepto + ll_imp_concepto;
-          
-            if ll_payconc > 0 then
-              if ll_payconc > ll_imp_concepto then
-                ll_paid    := ll_imp_concepto;
-                ll_payconc := ll_payconc - ll_imp_concepto;
-              else
-                ll_paid    := ll_payconc;
-                ll_payconc := 0;
-              end if;
-            else
-              ll_paid := 0;
-            end if;
-          
-            ll_imp_concepto := nvl(ll_imp_concepto, 0);
-          
-            if ll_imp_concepto <> 0 then
-              insert into imp_concepto
-                (usuario, f_actual, programa, sec_rec, nis_rad, sec_nis,
-                 f_fact, co_concepto, sec_concepto, csmo_fact, prec_concepto,
-                 imp_concepto, porc_concepto, base_calc_imp, ind_diff,
-                 imp_iva, ind_pago, desc_pago, imp_cta_cto, nir_srv,
-                 nir_asoc, imp_used, ind_arrear)
-              values
-                (gls_usuario, trunc(sysdate), gls_programa, ll_sec_rec,
-                 lcur_bill_rec.nis_rad, lcur_bill_rec.sec_nis, lf_fact,
-                 ls_co_concepto, ll_sec_concepto, 0, 0, ll_imp_concepto, 0,
-                 ll_imp_concepto, 0, 0, 1, ' ', ll_paid, ' ', ' ', 0, 0);
-            
-            end if;
-          
-          end loop;
-        
-        end if;
+      /*if ll_credit = 2 then
+                      ll_sec_concepto := 1;
+                      ls_co_concepto  := 'VA502';
+                      ll_paid         := ll_imp_tot_rec;
+                      ll_imp_concepto := ll_imp_tot_rec;
+                    
+                      insert into imp_concepto
+                        (usuario, f_actual, programa, sec_rec, nis_rad, sec_nis, f_fact,
+                         co_concepto, sec_concepto, csmo_fact, prec_concepto,
+                         imp_concepto, porc_concepto, base_calc_imp, ind_diff, imp_iva,
+                         ind_pago, desc_pago, imp_cta_cto, nir_srv, nir_asoc, imp_used,
+                         ind_arrear)
+                      values
+                        (gls_usuario, trunc(sysdate), gls_programa, ll_sec_rec,
+                         lcur_bill_rec.nis_rad, lcur_bill_rec.sec_nis, lf_fact,
+                         ls_co_concepto, ll_sec_concepto, 0, 0, ll_imp_concepto, 0,
+                         ll_imp_concepto, 0, 0, 1, ' ', ll_paid, ' ', ' ', 0, 0);
+                    
+                      --end if;
+                    
+                      --end loop;
+                      --Concepts
+                    else
+                      ll_payconc := lcur_bill_rec.paid;
+                    
+                      ll_sec_concepto := 0;
+                    
+                      \*for i in 1 .. 7 loop
+                        ll_sec_concepto := ll_sec_concepto + 1;
+                      
+                        if i = 1 then
+                          ls_co_concepto  := 'CC500';
+                          ll_imp_concepto := lcur_bill_rec.bill_tax;
+                        elsif i = 2 then
+                          ls_co_concepto  := 'CC120';
+                          ll_imp_concepto := lcur_bill_rec.radio;
+                        elsif i = 3 then
+                          ls_co_concepto  := 'CC100';
+                          ll_imp_concepto := lcur_bill_rec.fixed_charge;
+                        elsif i = 4 then
+                          ls_co_concepto  := 'CC130';
+                          ll_imp_concepto := lcur_bill_rec.garbage_charge;
+                        elsif i = 5 then
+                          ls_co_concepto  := 'CC261';
+                          ll_imp_concepto := lcur_bill_rec.energy;
+                        elsif i = 6 then
+                          ls_co_concepto  := 'CC230';
+                          ll_imp_concepto := lcur_bill_rec.loses;
+                        elsif i = 7 then
+                          ls_co_concepto  := 'CC360';
+                          ll_imp_concepto := lcur_bill_rec.potencia;
+                        end if;
+                      
+                        ll_tot_imp_concepto := ll_tot_imp_concepto + ll_imp_concepto;
+                      
+                        if ll_payconc > 0 then
+                          if ll_payconc > ll_imp_concepto then
+                            ll_paid    := ll_imp_concepto;
+                            ll_payconc := ll_payconc - ll_imp_concepto;
+                          else
+                            ll_paid    := ll_payconc;
+                            ll_payconc := 0;
+                          end if;
+                        else
+                          ll_paid := 0;
+                        end if;
+                      
+                        ll_imp_concepto := nvl(ll_imp_concepto, 0);
+                      
+                        if ll_imp_concepto <> 0 then
+                          insert into imp_concepto
+                            (usuario, f_actual, programa, sec_rec, nis_rad, sec_nis,
+                             f_fact, co_concepto, sec_concepto, csmo_fact, prec_concepto,
+                             imp_concepto, porc_concepto, base_calc_imp, ind_diff,
+                             imp_iva, ind_pago, desc_pago, imp_cta_cto, nir_srv,
+                             nir_asoc, imp_used, ind_arrear)
+                          values
+                            (gls_usuario, trunc(sysdate), gls_programa, ll_sec_rec,
+                             lcur_bill_rec.nis_rad, lcur_bill_rec.sec_nis, lf_fact,
+                             ls_co_concepto, ll_sec_concepto, 0, 0, ll_imp_concepto, 0,
+                             ll_imp_concepto, 0, 0, 1, ' ', ll_paid, ' ', ' ', 0, 0);
+                        
+                        end if;
+                      
+                      end loop;*\
+                    
+                    end if;*/
       
       end loop;
     
@@ -342,5 +332,5 @@ begin
                                                           1)) * 7)), 11)), -1);
 
   commit;
-end conversion_billing;
+end conversion_billing_nobills;
 /

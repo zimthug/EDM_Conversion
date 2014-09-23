@@ -1,26 +1,26 @@
-create or replace procedure conversion_billing(pll_nis_rad   in number default 0,
-                                               pls_system_id in number default null) is
+declare
   cursor lcur_bill is
-  /*select gb.*, '01' system_id
-                      from galatee_bill_extraction gb
-                     where not exists (select 0 from recibos where nis_rad = gb.nis_rad)
-                    union all
-                    select ab.*, '02'
-                      from access_bill_extraction ab
-                     where not exists (select 0 from recibos where nis_rad = ab.nis_rad);*/
-    select facture, dfac, dfac_prev, sp.nis_rad, sp.sec_nis, sp.cod_tar,
-           sp.cod_unicom, bill_amount, bill_tax, sp.gr_concepto, sp.cod_mask,
-           sp.tip_cli, sp.sec_cta, sp.cod_cli, paid, energy, fixed_charge,
-           radio, garbage_charge, loses, potencia, periode, sp.f_alta,
-           sp.system_id
-      from ciclo6_galatee_bill_extraction cs, int_supply sp
-     where cs.nis_rad = sp.nis_rad
-       and not exists
-     (select 0 from recibos where nis_rad = cs.nis_rad)
-    union all
-    select ab.*, '02'
-      from access_bill_extraction ab
-     where not exists (select 0 from recibos where nis_rad = ab.nis_rad);
+   select '20140801' facture, to_date(20140801, 'yyyymmdd') dfac,
+           0 bill_tax, 0 radio, 0 garbage_charge, 0 fixed_charge,
+           tr.valor energy, tr.valor bill_amount, 0 loses,
+           0 paid, sp.nis_rad, sec_nis, 0 potencia,
+           to_date(20140701, 'yyyymmdd') dfac_prev, sp.cod_tar, sp.tip_cli,
+           cod_cli, sp.cod_mask, sp.cod_unicom,
+           '201408' periode, gr_concepto, sec_cta,
+           sp.f_alta, decode(tr.type_debt, 'NORMAL', 'TR110', 'TR050') tip_rec
+      from prepaid_dividas tr, int_supply sp
+     where tr.nis_rad = sp.nis_rad;
+   /* select to_char(tr.debt_date, 'yyyymmdd') facture, tr.debt_date dfac,
+           0 bill_tax, 0 radio, 0 garbage_charge, 0 fixed_charge,
+           tr.debt_amount energy, tr.debt_balance bill_amount, 0 loses,
+           0 paid, sp.nis_rad, sec_nis, 0 potencia,
+           add_months(tr.debt_date, -1) dfac_prev, sp.cod_tar, sp.tip_cli,
+           cod_cli, sp.cod_mask, sp.cod_unicom,
+           to_char(tr.debt_date, 'yyyymm') periode, gr_concepto, sec_cta,
+           sp.f_alta, 'TR110' tip_rec
+      from edmeclipse.eclipse_debt tr, int_supply sp
+     where tr.meter_no = sp.client
+       and status = 'Active';*/
   lf_proc_cobro       date;
   lf_previous_date    date;
   lf_fact             date;
@@ -93,14 +93,7 @@ begin
         --lf_proc_cobro := ;
       
         if ls_est_act = 'ER310' then
-          select nvl(max(denr), trunc(sysdate))
-            into lf_proc_cobro
-            from edmgalatee.lclient
-           where ndoc = lcur_bill_rec.facture
-             and (centre, client, ordre) =
-                 (select centre, client, ordre
-                    from int_supply
-                   where nis_rad = lcur_bill_rec.nis_rad);
+          lf_proc_cobro := to_date(29991231, 'yyyymmdd');
         else
           lf_proc_cobro := conversion_pck.glf_fechanulla;
         end if;
@@ -290,6 +283,39 @@ begin
       
       end loop;
     
+      update recibos
+         set cod_ref = to_char(cod_ref) ||
+                        substr(to_char(11 -
+                                       mod(((to_number(substr(to_char(cod_ref),
+                                                              1, 1)) * 2) +
+                                           (to_number(substr(to_char(cod_ref),
+                                                              2, 1)) * 3) +
+                                           (to_number(substr(to_char(cod_ref),
+                                                              3, 1)) * 4) +
+                                           (to_number(substr(to_char(cod_ref),
+                                                              4, 1)) * 5) +
+                                           (to_number(substr(to_char(cod_ref),
+                                                              5, 1)) * 6) +
+                                           (to_number(substr(to_char(cod_ref),
+                                                              6, 1)) * 7) +
+                                           (to_number(substr(to_char(cod_ref),
+                                                              7, 1)) * 2) +
+                                           (to_number(substr(to_char(cod_ref),
+                                                              8, 1)) * 3) +
+                                           (to_number(substr(to_char(cod_ref),
+                                                              9, 1)) * 4) +
+                                           (to_number(substr(to_char(cod_ref),
+                                                              10, 1)) * 5) +
+                                           (to_number(substr(to_char(cod_ref),
+                                                              11, 1)) * 6) +
+                                           (to_number(substr(to_char(cod_ref),
+                                                              12, 1)) * 7)), 11)),
+                               -1)
+       where nis_rad = lcur_bill_rec.nis_rad
+         and sec_nis = lcur_bill_rec.sec_nis
+         and sec_rec = ll_sec_rec
+         and f_fact = lf_fact;
+    
       if ll_cnis_rad <> lcur_bill_rec.nis_rad then
         ll_commit := ll_commit + 1;
       
@@ -312,35 +338,4 @@ begin
   end loop;
   commit;
 
-  --Cod_Ref Updates
-  update recibos
-     set cod_ref = to_char(cod_ref) ||
-                    substr(to_char(11 -
-                                   mod(((to_number(substr(to_char(cod_ref), 1,
-                                                          1)) * 2) +
-                                       (to_number(substr(to_char(cod_ref), 2,
-                                                          1)) * 3) +
-                                       (to_number(substr(to_char(cod_ref), 3,
-                                                          1)) * 4) +
-                                       (to_number(substr(to_char(cod_ref), 4,
-                                                          1)) * 5) +
-                                       (to_number(substr(to_char(cod_ref), 5,
-                                                          1)) * 6) +
-                                       (to_number(substr(to_char(cod_ref), 6,
-                                                          1)) * 7) +
-                                       (to_number(substr(to_char(cod_ref), 7,
-                                                          1)) * 2) +
-                                       (to_number(substr(to_char(cod_ref), 8,
-                                                          1)) * 3) +
-                                       (to_number(substr(to_char(cod_ref), 9,
-                                                          1)) * 4) +
-                                       (to_number(substr(to_char(cod_ref), 10,
-                                                          1)) * 5) +
-                                       (to_number(substr(to_char(cod_ref), 11,
-                                                          1)) * 6) +
-                                       (to_number(substr(to_char(cod_ref), 12,
-                                                          1)) * 7)), 11)), -1);
-
-  commit;
 end conversion_billing;
-/

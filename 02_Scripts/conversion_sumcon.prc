@@ -1,4 +1,4 @@
-create or replace procedure conversion_sumcon is
+CREATE OR REPLACE PROCEDURE conversion_sumcon is
   /**
   * @author vomondi@indracompany.com
   * @author tmlangeni@eservicios.indracompany.com
@@ -60,7 +60,7 @@ begin
     
       select sgc.nis03.nextval into ll_nis_rad_2 from dual;
     
-      select convis.nis_rad_7.nextval into ll_nis_rad_7 from dual;
+      select sgc.nis_bulk.nextval into ll_nis_rad_7 from dual;
     
       for i in 1 .. 2 loop
         if i = 1 then
@@ -116,9 +116,15 @@ begin
           ll_cos_fi           := 0.80;
           lcur_sumcon_rec.pot := (nvl(lcur_sumcon_rec.pot, 0) * .8) * 1000;
         else
-          ll_ind_prefact      := 2;
+          ll_ind_prefact      := 1;
           ll_cos_fi           := 1;
           lcur_sumcon_rec.pot := nvl(lcur_sumcon_rec.pot, 0) * 1000;
+        end if;
+      
+        lcur_sumcon_rec.co_estm := 'ME000';
+      
+        if lcur_sumcon_rec.cod_mask != 2048 and i = 1 then
+          lcur_sumcon_rec.co_estm := 'ME223';
         end if;
       
         insert into intfopen.sumcon
@@ -154,9 +160,9 @@ begin
            ls_tip_per_fact, 0, 0, 0, 0, 0, ls_num_plza, 0, lf_fecha_nulla, 0,
            2, lcur_sumcon_rec.f_alta, 0, ls_co_recar_fp, lf_fecha_nulla,
            nvl(ll_cod_cnae, 9999), 0, 0, 0, 2, 2, 2, 0, 0,
-           nvl(lcur_sumcon_rec.co_estm, 'ME000'), 0, ls_tip_multa, 0,
-           ls_tip_recargo, 0, 1, lcur_sumcon_rec.f_alta, ' ',
-           lcur_sumcon_rec.nif, lcur_sumcon_rec.f_alta, '  ',
+           lcur_sumcon_rec.co_estm, 0, ls_tip_multa, 0, ls_tip_recargo, 0, 1,
+           lcur_sumcon_rec.f_alta, ' ', lcur_sumcon_rec.nif,
+           lcur_sumcon_rec.f_alta, '  ',
            nvl(lcur_sumcon_rec.tip_tension, 'TT000'),
            nvl(lcur_sumcon_rec.tip_fase, 'FA001'), 0,
            nvl(lcur_sumcon_rec.tip_conexion, 'CX999'), ' ',
@@ -164,8 +170,8 @@ begin
            0, lcur_sumcon_rec.cod_unicom_serv,
            nvl(lcur_sumcon_rec.co_an_vip, 'VP999'), ' ', 2, 1,
            ls_tip_distr_anticipos, ls_cod_calc_pot, ls_tip_alquiler,
-           ls_tip_compensacion, ls_tip_autogenerador, 0, 0, 0, 0, 0, 0
-           /*0.8 COS_FI*/, ll_prioridad, ' ', 0, ll_datos, lf_fecha_nulla, 2,
+           ls_tip_compensacion, ls_tip_autogenerador, 0, 0, 0, 0, 0,
+           ll_cos_fi, ll_prioridad, ' ', 0, ll_datos, lf_fecha_nulla, 2,
            lcur_sumcon_rec.cod_mask, ll_cod, 0, ls_est_gest_impag,
            lf_fecha_nulla, ll_ind_prefact, 0, 0, 0, ls_rent_revision,
            conversion_pck.gls_usuario, trunc(sysdate), ls_tip_csmo_rang);
@@ -205,7 +211,7 @@ begin
        where cod_cli = lcur_sumcon_rec.cod_cli
          and sec_cta = lcur_sumcon_rec.sec_cta;
     
-      --For employees add bonus.....  
+      --For employees add bonus.....
       if lcur_sumcon_rec.est_sum like 'EC01_' then
         begin
           select count(*)

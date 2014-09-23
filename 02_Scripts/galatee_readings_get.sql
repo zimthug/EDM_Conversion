@@ -22,7 +22,7 @@ insert into galatee_readings
      and cp.client = ca.ag(+)
      and cp.compteur = ca.compteur(+)
      and re.tip_rec = 'TR110'
-     and cp.topannul is null
+        --and cp.topannul is null
         --and tfac = 1
      and dev = (select max(dev)
                   from edmgalatee.cprofac
@@ -61,7 +61,7 @@ insert into galatee_readings
      and cp.centre = ca.centre
      and cp.client = ca.ag
      and cp.compteur = ca.compteur
-     and cp.topannul is null
+     --and cp.topannul is null
      and sp.nis_rad is not null
         --and tfac = 1
      and dev = (select max(dev)
@@ -74,8 +74,8 @@ insert into galatee_readings
             from galatee_readings
            where centre = cp.centre
              and client = cp.client
-             --and ordre = cp.ordre
-             and compteur = cp.compteur)        
+                --and ordre = cp.ordre
+             and compteur = cp.compteur)
   --and cp.centre = '006'
   --and cp.client = '0201109'
   --and sp.nis_rad = 200924586
@@ -84,32 +84,32 @@ insert into galatee_readings
   ;
 
 insert into galatee_readings
-select sp.centre, sp.client, sp.ordre, sp.nis_rad, sp.sec_nis,
-       sp.cod_unicom_serv, sp.cod_cli, sp.nif, ca.point, ca.compteur,
-       case
-         when substr(trim(ca.compteur), 1, 1) in ('R', 'D') then
-          'A' || substr(trim(ca.compteur), 2)
-         else
-          trim(ca.compteur)
-       end num_apa, ca.datepose, 0 lect, 1 tfac, ca.coeflect,
-       decode(ca.compteur, null, 'OLD', 'CURR') num_apa_curr, ca.cadcompt, 0,
-       0 csmo, 0 dif_lect
-  from int_supply sp, edmgalatee.canalisation ca
- where sp.centre = ca.centre
-   and sp.client = ca.ag
-   and sp.nis_rad is not null
-   and sp.est_sum = 'EC012'
-   and trim(ca.compteur) is not null
-   and ca.datepose is not null
-   and not exists (select 0
-          from galatee_readings e
-         where e.centre = sp.centre
-           and e.client = sp.client
-           --and e.ordre = sp.ordre
-           and e.compteur = ca.compteur)
-      --and cp.centre = '006'
-   --and sp.client = '1014137'
-      --and sp.nis_rad = 200924586
-   --and ca.compteur = 'A0000372194'
---order by cp.devpre desc
-;
+  select sp.centre, sp.client, sp.ordre, sp.nis_rad, sp.sec_nis,
+         sp.cod_unicom_serv, sp.cod_cli, sp.nif, ca.point, ca.compteur,
+         case
+           when substr(trim(ca.compteur), 1, 1) in ('R', 'D') then
+            'A' || substr(trim(ca.compteur), 2)
+           else
+            trim(ca.compteur)
+         end num_apa, ca.datepose, 0 lect, 1 tfac, ca.coeflect,
+         decode(ca.compteur, null, 'OLD', 'CURR') num_apa_curr, ca.cadcompt,
+         0, 0 csmo, 0 dif_lect
+    from int_supply sp, edmgalatee.canalisation ca
+   where sp.centre = ca.centre
+     and sp.client = ca.ag
+     and sp.nis_rad is not null
+     and sp.est_sum = 'EC012'
+     and trim(ca.compteur) is not null
+     and ca.datepose is not null
+     and not exists (select 0
+            from galatee_readings e
+           where e.centre = sp.centre
+             and e.client = sp.client
+                --and e.ordre = sp.ordre
+             and e.compteur = ca.compteur)
+  --and cp.centre = '006'
+  --and sp.client = '1014137'
+  --and sp.nis_rad = 200924586
+  --and ca.compteur = 'A0000372194'
+  --order by cp.devpre desc
+  ;

@@ -1,4 +1,4 @@
-create or replace procedure conversion_clientes is
+CREATE OR REPLACE PROCEDURE conversion_clientes is
 
   cursor lcur_clientes is
     select upper(nvl(ape1_cli, ' ')) ape1_cli,
@@ -69,7 +69,7 @@ begin
          ll_nrh_fav, ll_nrh_pen, ll_fax_cli, ll_pers_contacto,
          ll_co_cond_fiscal, '  ', '  ', '  ', lcur_clientes_rec.cualif_cli,
          0, 0, nvl(lcur_clientes_rec.nuit, ' '), lcur_clientes_rec.ape1_cli,
-         '/1/6/ / / / / / /', ' ', lcur_clientes_rec.nif,
+         '/1/6/ / / / /6/MP006/', ' ', lcur_clientes_rec.nif,
          nvl(lcur_clientes_rec.telefone2, ' '), '/0/0/', 'EK001', 'SS000',
          ' ', lcur_clientes_rec.ape1_cli, lcur_clientes_rec.ape2_cli, ' ',
          substr(lcur_clientes_rec.nom_cli, 1, 25),
@@ -81,7 +81,7 @@ begin
       /* 20140305 => To be handled in BONIFICACIONES and at the level of Supply (CONVERSION_SUMCON) */
       /*
       If customer is employee add into PERSONAL. We should get the employee number from
-      the mapping to be provided by EDM. 
+      the mapping to be provided by EDM.
       */
       /* select count(*)
         into ll_employee
@@ -145,6 +145,29 @@ begin
      set tip_doc = 'TD007', doc_id = num_fiscal
    where tip_cli <> 'TC001'
      and trim(num_fiscal) is not null;
+
+  --RCH script for num_fiscal....
+  declare
+    cursor c1 is
+      SELECT cod_cli, num_fiscal
+        FROM clientes a
+       WHERE LENGTH(TRANSLATE(a.num_fiscal, 'x0123456789', 'x')) IS NOT NULL;
+  
+    i             number := 1000000;
+    lc_num_fiscal varchar(12) := ' ';
+  
+  begin
+    execute immediate ('alter session set nls_date_format = ''yyyymmdd''');
+  
+    for rec in c1 loop
+      lc_num_fiscal := '9999' || to_char(i);
+      update clientes
+         set num_fiscal = lc_num_fiscal
+       where cod_cli = rec.cod_cli;
+      i := i + 1;
+    end loop;
+    --commit;
+  end;
 
   --Log end of running
   conversion_pck.logger(p_run_id => conversion_pck.gll_run_id,

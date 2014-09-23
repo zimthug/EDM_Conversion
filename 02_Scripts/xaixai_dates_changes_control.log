@@ -1,0 +1,59 @@
+
+SQL*Loader: Release 11.2.0.1.0 - Production on Wed Aug 13 19:01:09 2014
+
+Copyright (c) 1982, 2009, Oracle and/or its affiliates.  All rights reserved.
+
+Control File:   xaixai_dates_changes_control.ctl
+Data File:      xaixai_dates_changes.csv
+  Bad File:     xaixai_dates_changes.bad
+  Discard File:  none specified
+ 
+ (Allow all discards)
+
+Number to load: ALL
+Number to skip: 0
+Errors allowed: 50
+Bind array:     64 rows, maximum of 256000 bytes
+Continuation:    none specified
+Path used:      Conventional
+
+Table OPEN_U.TMP_XAIXAI_DATES, loaded from every logical record.
+Insert option in effect for this table: APPEND
+TRAILING NULLCOLS option in effect
+
+   Column Name                  Position   Len  Term Encl Datatype
+------------------------------ ---------- ----- ---- ---- ---------------------
+NIS_RAD                             FIRST     *   ,  O(") CHARACTER            
+ZONA                                 NEXT     *   ,  O(") CHARACTER            
+INSTALACAO                           NEXT     *   ,  O(") CHARACTER            
+MES_ANO                              NEXT     *   ,  O(") DATE DD/MM/YYYY      
+DATAVALOR                            NEXT     *   ,  O(") DATE DD/MM/YYYY      
+LEITURA                              NEXT     *   ,  O(") CHARACTER            
+VALOR                                NEXT     *   ,  O(") CHARACTER            
+LEITURAREA                           NEXT     *   ,  O(") CHARACTER            
+POTENCIA_FACTURADA                   NEXT     *   ,  O(") CHARACTER            
+
+Record 1: Rejected - Error on table OPEN_U.TMP_XAIXAI_DATES, column NIS_RAD.
+ORA-01722: invalid number
+
+
+Table OPEN_U.TMP_XAIXAI_DATES:
+  73914 Rows successfully loaded.
+  1 Row not loaded due to data errors.
+  0 Rows not loaded because all WHEN clauses were failed.
+  0 Rows not loaded because all fields were null.
+
+
+Space allocated for bind array:                 148608 bytes(64 rows)
+Read   buffer bytes: 1048576
+
+Total logical records skipped:          0
+Total logical records read:         73915
+Total logical records rejected:         1
+Total logical records discarded:        0
+
+Run began on Wed Aug 13 19:01:09 2014
+Run ended on Wed Aug 13 19:02:48 2014
+
+Elapsed time was:     00:01:38.99
+CPU time was:         00:00:01.08
